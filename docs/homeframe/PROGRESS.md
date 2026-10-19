@@ -28,7 +28,7 @@ upstream features or all Homeframe device scenarios.
 | --- | --- |
 | Fork, baseline and Studio AI branding | Repository created; product title, login, manifest, splash, icon and README renamed; license notices retained |
 | Persistent Homeframe shell | Desktop/mobile fixture checks: one shell/header/scroller, 16px inputs, no sidebar close-menu button |
-| Authentication | Real staging sign-in; fixture checks for expired sessions versus item-level permission failures; MFA UI implemented, not yet exercised |
+| Authentication | Real staging sign-in; fixture checks for expired sessions versus item-level permission failures; real MFA enrollment/TOTP confirmation/recovery sign-in and remaining-code status passed; OAuth callback fixture passed |
 | Chat | Real streaming/reload, file context, Python tool execution, temporary response without history persistence |
 | Images | Real prompt generation and reference-image editing; each about 9.4 seconds for one 512px sample, not a benchmark distribution |
 | Workspace | Notes/prompts save/reload; knowledge and skills CRUD; model/tool/function create/reload/delete round trips passed |
@@ -39,8 +39,8 @@ upstream features or all Homeframe device scenarios.
 | Storage and privacy | User-scoped draft migration including attachments/tools; logout purges private framework checkpoints; temporary drafts not persisted |
 | Browser updates | Built A→B promotion retained draft, deferred activation until safe route, offline recovery, preserved identity and API cache exclusion |
 | Proxy | Automated open-SSE release promotion, authenticated cookies, multipart-sized body, raw WebSocket and static traversal/asset failure checks |
-| Native iOS | Native Safari software-keyboard pan regression passed after framework fix; installed iPhone software keyboard, Notes, landscape and cold draft restore passed; final-artifact recordings pending |
-| Automated tests | Latest focused run: 18 unit + 2 proxy tests; browser run: 16 tests; final source checks still required |
+| Native iOS | Native Safari software-keyboard pan regression passed after framework fix; installed iPhone software keyboard, Notes, landscape and cold draft restore passed; native opening/cold-launch recordings inspected; desktop Safari, installed macOS Chrome and iPad portrait/landscape tests passed |
+| Automated tests | Latest full run: 20 unit + 2 proxy tests, 17 browser tests, strict typecheck/build/doctor; all passed |
 | Production cutover | Pending final parity, device/update/rollback and live continuity gates |
 
 ## Evidence and measured changes
@@ -95,3 +95,28 @@ It processes the checked-in branding asset during the build; it is not installed
 or imported by the production static/proxy server. No untrusted uploaded image is
 processed by that deployment process. Keep build inputs trusted and track an
 upstream patched image-tool release.
+
+## Final authentication and performance checks
+
+A disposable staging user completed real MFA enrollment, TOTP confirmation,
+recovery-code sign-in and security-status refresh. Its account was removed and
+the staging-only policy restored. An OAuth callback regression test verifies
+that the one-use MFA cookie is consumed once, stale Authorization headers are
+cleared, and the verified session reaches the workspace. No external identity
+provider was used in that fixture.
+
+Five cold and five warm Chromium runs per frontend used the same isolated backend,
+1440×980 viewport, a fresh browser context per cold run and service workers blocked.
+Timing ends when the editable composer becomes visible; warm runs revisit the
+same route in that context. These are local browser measurements, not WAN latency
+or model response latency. Baseline selector was upstream `#chat-input`.
+
+| Frontend | Cold median (range), ms | Warm median (range), ms | Median requests until composer |
+| --- | --- | --- | --- |
+| Upstream 0.12.3 | 1040 (995–1052) | 444 (415–454) | 222 |
+| Studio AI | 156 (154–164) | 123 (91–124) | 17 |
+
+The staging update rehearsal retained a real 120-item Qwen response during
+promotion, blocked activation requested by another tab until generation finished,
+updated both tabs, rolled back at the same worker identity and restored the
+candidate. Production switching remains a separate gate.

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { HomeframeInput, useNavigate, useRouterSnapshot } from '@builtbyted/homeframe';
 import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
@@ -35,6 +35,7 @@ export function AuthPage() {
   const [recovery, setRecovery] = useState(false);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [pendingAccount, setPendingAccount] = useState<User | null>(null);
+  const bootstrap = useRef<Promise<Dict> | null>(null);
   const finish = async (result: Dict) => {
     if (result.next_step === 'pending') {
       setError('Your account is waiting for administrator approval.');
@@ -58,6 +59,32 @@ export function AuthPage() {
     }
     await session.signedIn(result as User);
   };
+  const mfaReturn = route.url.searchParams.has('mfa');
+  useEffect(() => {
+    const providerError = route.url.searchParams.get('error');
+    if (providerError) setError(providerError);
+    if (route.url.searchParams.has('pending'))
+      setError('Your account is waiting for administrator approval.');
+    if (!mfaReturn || session.user) return;
+    let active = true;
+    setBusy(true);
+    // The server clears this one-use cookie. Share the request across React's
+    // development effect replay rather than consuming the callback twice.
+    bootstrap.current ??= api<Dict>('/api/v1/auths/mfa/challenge', {});
+    void bootstrap.current
+      .then(async (result) => {
+        if (active) await finish(result);
+      })
+      .catch((reason) => {
+        if (active) setError(errorMessage(reason));
+      })
+      .finally(() => {
+        if (active) setBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [mfaReturn, session.user]);
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);

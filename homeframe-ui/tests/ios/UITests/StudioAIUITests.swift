@@ -130,13 +130,50 @@ final class StudioAIUITests: XCTestCase {
     }
 
     @MainActor
+    func testTabletKeyboardAndNavigation() throws {
+        XCUIDevice.shared.orientation = .portrait
+        let safari = try launchSafari()
+        try signIn(safari)
+        try prepareCurrentBuild(safari)
+        let composer = safari.textViews["Message"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 20))
+        composer.tap()
+        let letter = safari.keyboards.firstMatch.keys.matching(NSPredicate(format: "label ==[c] 'a'")).firstMatch
+        XCTAssertTrue(letter.waitForExistence(timeout: 10))
+        letter.tap()
+        XCTAssertLessThanOrEqual(composer.frame.maxY, safari.keyboards.firstMatch.frame.minY + 2)
+        attach("iPad portrait keyboard")
+        safari.buttons["Open navigation"].tap()
+        safari.links["Notes"].tap()
+        XCTAssertTrue(safari.staticTexts["Notes"].firstMatch.waitForExistence(timeout: 10))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(safari.links["Notes"].waitForExistence(timeout: 10))
+        attach("iPad landscape notes")
+        safari.links.matching(NSPredicate(format: "label BEGINSWITH 'New conversation'")).firstMatch.tap()
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        composer.tap()
+        XCTAssertTrue(letter.waitForExistence(timeout: 10))
+        letter.tap()
+        XCTAssertLessThanOrEqual(composer.frame.maxY, safari.keyboards.firstMatch.frame.minY + 2)
+        attach("iPad landscape keyboard")
+        XCUIDevice.shared.orientation = .portrait
+    }
+
+    @MainActor
     private func prepareCurrentBuild(_ app: XCUIApplication) throws {
+        // Activate only from a route without an unsent composer. A retained draft
+        // correctly defers an update, including in a separate installed context.
+        let menu = app.buttons["Open navigation"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 30))
+        if app.textViews["Message"].exists {
+            menu.tap()
+            app.links["Notes"].tap()
+        }
         let update = app.buttons["Update when ready"]
-        if update.waitForExistence(timeout: 5) {
+        if update.waitForExistence(timeout: 20) {
             update.tap()
             XCTAssertTrue(update.waitForNonExistence(timeout: 20))
         }
-        let menu = app.buttons["Open navigation"]
         XCTAssertTrue(menu.waitForExistence(timeout: 30))
         if !app.textViews["Message"].exists {
             menu.tap()

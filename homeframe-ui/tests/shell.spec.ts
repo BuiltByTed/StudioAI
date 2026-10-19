@@ -434,3 +434,39 @@ test('microphone transcription appends a draft and releases microphone tracks', 
     await page.evaluate(() => (window as unknown as { qaTrackStops: number }).qaTrackStops),
   ).toBeGreaterThan(0);
 });
+
+test('OAuth MFA callback consumes its cookie once and verifies inside the persistent shell', async ({
+  page,
+}) => {
+  let authenticated = false,
+    challenges = 0;
+  await page.route('**/api/v1/auths/', (route) =>
+    route.fulfill(
+      authenticated
+        ? { json: { id: 'fixture-user', name: 'Sam', role: 'admin' } }
+        : { status: 401, json: { detail: 'Sign in required' } },
+    ),
+  );
+  await page.route('**/api/v1/auths/mfa/challenge', (route) => {
+    challenges++;
+    return route.fulfill({ json: { next_step: 'verify', challenge_token: 'fixture-challenge' } });
+  });
+  await page.route('**/api/v1/auths/mfa/verify', async (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      challenge_token: 'fixture-challenge',
+      code: '123456',
+    });
+    authenticated = true;
+    await route.fulfill({
+      json: { id: 'fixture-user', name: 'Sam', role: 'admin', token: 'verified-session' },
+    });
+  });
+  await page.goto('/auth?mfa=1');
+  await expect(page.getByLabel('Authenticator code', { exact: true })).toBeVisible();
+  expect(challenges).toBe(1);
+  expect(await page.evaluate(() => localStorage.getItem('token'))).toBeNull();
+  await page.getByLabel('Authenticator code', { exact: true }).fill('123456');
+  await page.getByRole('button', { name: 'Verify', exact: true }).click();
+  await expect(page.getByLabel('Message', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('token'))).toBe('verified-session');
+});

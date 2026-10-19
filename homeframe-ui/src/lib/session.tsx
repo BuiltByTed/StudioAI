@@ -41,6 +41,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const generation = useRef(0);
+  const authCallbackHandled = useRef(false);
   const clearFrameworkState = useHomeframeLogout();
   const refresh = useCallback(async () => {
     const version = ++generation.current;
@@ -49,6 +50,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       try {
         migratePreferences(localStorage);
+        if (!authCallbackHandled.current && window.location.pathname === '/auth') {
+          authCallbackHandled.current = true;
+          const params = new URLSearchParams(window.location.search);
+          if (params.has('mfa') || params.has('pending')) localStorage.removeItem('token');
+          else if (params.get('state') !== 'logout') {
+            // OAuth returns a fresh cookie; an old Authorization header must not
+            // override it and silently restore the account used before SSO.
+            const cookie = document.cookie.match(/(?:^|;\s*)token=([^;]*)/);
+            if (cookie?.[1]) localStorage.setItem('token', decodeURIComponent(cookie[1]));
+          }
+        }
       } catch {
         /* Storage can be disabled; session cookies still work. */
       }
