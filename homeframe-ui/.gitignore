@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.homeframe/
+test-results/
+playwright-report/
+qa-artifacts/
+.env*
+!.env.example

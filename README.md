@@ -1,3 +1,5 @@
+> **BuiltByTed / Studio AI:** The Homeframe React migration is in [`homeframe-ui`](homeframe-ui/README.md). It is under active development; see the [migration ledger](docs/homeframe/PROGRESS.md) for verified coverage and deployment status. Upstream Open WebUI code and notices are preserved below.
+
 # Open WebUI 👋
 
 ![GitHub stars](https://img.shields.io/github/stars/open-webui/open-webui?style=social)
