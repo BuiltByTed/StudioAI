@@ -4,9 +4,9 @@ Your personal AI workspace, built by Ted. Studio AI is an independently maintain
 fork of [Open WebUI](https://github.com/open-webui/open-webui) with a React interface
 built on [Homeframe](https://github.com/BuiltByTed/Homeframe).
 
-The replacement interface is under active development. It is not yet deployed.
-See the [migration ledger](docs/homeframe/PROGRESS.md) for verified coverage and
-remaining release gates.
+Studio AI is deployed with the Homeframe React interface. See the
+[release report](docs/homeframe/RELEASE-2026-10-19.md) for verification, migration
+and remaining feature limitations.
 
 ## Development
 

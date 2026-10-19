@@ -40,6 +40,24 @@ or JavaScript evaluation. Python executes in a separate opaque-origin sandbox;
 its evaluator permissions never apply to the main application. Preserve both the
 iframe sandbox and the sandbox document's response policy.
 
+Configure the outermost HTML response with `Cache-Control: no-cache, no-transform`.
+Homeframe verifies precached bytes. CDN-injected analytics or challenge scripts
+change those bytes and can leave an apparently working online app without an
+active worker. Cloudflare documents this header for
+[JavaScript Detections](https://developers.cloudflare.com/cloudflare-challenges/challenge-types/javascript-detections/)
+and [automatic analytics injection](https://developers.cloudflare.com/web-analytics/faq/).
+Verify the public URL, not only a localhost staging server:
+
+```sh
+STUDIO_TEST_URL=https://your-studio.example npm run test:deployment
+```
+
+The read-only probe compares public HTML with the built artifact, checks the API
+boundary and waits for an activated, controlling worker. With Nginx Proxy Manager,
+`add_header` at server scope can be shadowed by location-level HSTS headers. Verify
+the response; a supported headers-more directive scoped to `text/html` avoids that
+inheritance issue without modifying backend streams or immutable asset caching.
+
 Versioned JavaScript and CSS are immutable. HTML, the worker and both manifest
 URLs revalidate, including manifest URLs with revision queries. Unknown API routes
 return JSON errors instead of the upstream SPA; real HTML file downloads retain

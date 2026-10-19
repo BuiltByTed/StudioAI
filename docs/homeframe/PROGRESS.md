@@ -20,9 +20,10 @@
 
 ## Execution ledger — 2026-10-19
 
-Production has **not** been switched. The existing backend and data remain unchanged.
-The replacement has substantial working coverage but is not yet certified for all
-upstream features or all Homeframe device scenarios.
+Production switched on 2026-10-19. The backend stayed running and its database
+revision, integrity and record counts remained unchanged. The public artifact
+passes strict Homeframe doctor and browser checks. See the
+[release report](RELEASE-2026-10-19.md) for evidence and explicit parity/device limits.
 
 | Work | Verified status |
 | --- | --- |
@@ -37,11 +38,11 @@ upstream features or all Homeframe device scenarios.
 | Scheduled tasks | Isolated paused weekly task create/reload/delete; no live task execution |
 | Playground | Real streaming completion and save as conversation |
 | Storage and privacy | User-scoped draft migration including attachments/tools; logout purges private framework checkpoints; temporary drafts not persisted |
-| Browser updates | Built A→B promotion retained draft, deferred activation until safe route, offline recovery, preserved identity and API cache exclusion |
+| Browser updates | Draft/offline recovery and API cache exclusion; final E→F real generation continued, cross-tab activation deferred, both tabs upgraded, rollback and restoration passed |
 | Proxy | Automated open-SSE release promotion, authenticated cookies, multipart-sized body, raw WebSocket and static traversal/asset failure checks |
 | Native iOS | Native Safari software-keyboard pan regression passed after framework fix; installed iPhone software keyboard, Notes, landscape and cold draft restore passed; native opening/cold-launch recordings inspected; desktop Safari, installed macOS Chrome and iPad portrait/landscape tests passed |
 | Automated tests | Latest full run: 20 unit + 2 proxy tests, 17 browser tests, strict typecheck/build/doctor; all passed |
-| Production cutover | Pending final parity, device/update/rollback and live continuity gates |
+| Production cutover | Live final artifact; 100 HTTP 200 checks, existing WebSocket retained, backend PID unchanged; public doctor 0 errors/warnings; public worker activation passed after preventing CDN HTML transformation |
 
 ## Evidence and measured changes
 
@@ -49,8 +50,8 @@ Private operator artifacts contain executable integration scripts, logs, screens
 and native xcresult bundles. They contain private conversation data and are not published.
 Each check above states what it tested; implementation alone is not a PASS.
 
-- Strict TypeScript, production build and Homeframe doctor passed before the latest
-  prompt-picker and temporary-chat additions. The final source must be checked again.
+- Final application source passed strict TypeScript, production build, Homeframe
+  doctor and GitHub CI. The exact tested static artifact was promoted.
 - Initial bundled JavaScript decreased from 889.53 KB (263.80 KB gzip) to 289.52 KB
   (91.13 KB gzip) by deferring editors and rich Markdown/math rendering. This is a
   build-size comparison, not a measured startup-latency claim.
@@ -70,19 +71,14 @@ Each check above states what it tested; implementation alone is not a PASS.
   accessible labels and pressed states. It now forwards native button attributes
   and defaults to type=button so actions inside the composer cannot submit a chat.
 
-## Next executable actions
+## Follow-up boundaries
 
-1. Complete final-artifact installed-app and keyboard
-   recordings against the final artifact.
-2. Finish web-link retrieval, downloads/imports, sharing permissions,
-   image workspace restoration and remaining enabled admin controls.
-3. Complete the route/feature inventory; explicitly classify disabled deployment
-   features and unresolved parity rather than silently omitting them.
-4. Run final source checks and browser regressions; commit/publish reviewed changes.
-5. Rehearse active-generation, multi-tab and rollback updates; measure final startup.
-6. Promote the tested immutable artifact with a graceful proxy change, preserving
-   the existing backend, active requests and previous frontend assets. Monitor and
-   report the deployed revision and remaining validation limits.
+The release report and route inventory distinguish implemented controls from
+end-to-end verification. Remaining work includes disabled channels/integrations,
+simultaneous multi-model comparison, realtime voice calls, rich collaborative
+notes and physical-device/accessibility checks. These are not marked as complete.
+Production configuration changes and external identity-provider round trips were
+not used as test fixtures.
 
 ## Dependency review
 
@@ -114,9 +110,11 @@ or model response latency. Baseline selector was upstream `#chat-input`.
 | Frontend | Cold median (range), ms | Warm median (range), ms | Median requests until composer |
 | --- | --- | --- | --- |
 | Upstream 0.12.3 | 1040 (995–1052) | 444 (415–454) | 222 |
-| Studio AI | 156 (154–164) | 123 (91–124) | 17 |
+| Studio AI final artifact | 169 (143–300) | 128 (78–145) | 17 |
 
 The staging update rehearsal retained a real 120-item Qwen response during
 promotion, blocked activation requested by another tab until generation finished,
 updated both tabs, rolled back at the same worker identity and restored the
-candidate. Production switching remains a separate gate.
+candidate. The public switch subsequently passed continuity, database and
+deployed-artifact checks. A Cloudflare HTML-injection issue was detected and fixed
+at the proxy with `no-transform`; the active worker was then verified publicly.

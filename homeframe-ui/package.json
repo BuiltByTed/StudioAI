@@ -10,7 +10,8 @@
     "doctor": "homeframe doctor --root . --dist dist --strict",
     "test": "vitest run && node --test deploy/server.test.ts",
     "test:e2e": "playwright test",
-    "check": "npm run test && npm run build && npm run doctor"
+    "check": "npm run test && npm run build && npm run doctor",
+    "test:deployment": "node deploy/verify.ts"
   },
   "dependencies": {
     "@builtbyted/homeframe": "file:vendor/builtbyted-homeframe-0.1.18-studio.1.tgz",

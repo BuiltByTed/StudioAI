@@ -5,8 +5,9 @@ frontend and license notices remain in this repository for maintenance and
 rollback. This frontend uses `@builtbyted/homeframe@0.1.18-studio.1` for viewport, keyboard,
 safe-area, routing, shell and PWA ownership.
 
-**Migration in progress. Do not replace a production frontend until the coverage
-and cutover gates in [the progress ledger](../docs/homeframe/PROGRESS.md) pass.**
+The initial deployment is complete. See the
+[release report](../docs/homeframe/RELEASE-2026-10-19.md) and
+[deployment runbook](deploy/README.md) before promoting another release.
 
 ```sh
 cd homeframe-ui
