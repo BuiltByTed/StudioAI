@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { HomeframeInput, useNavigate, useRouterSnapshot } from '@builtbyted/homeframe';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import { useSession } from '../lib/session';
 import { text, type Dict, type User } from '../lib/types';
@@ -15,7 +15,10 @@ export function AuthPage() {
     if (!session.user || route.url.pathname !== '/auth') return;
     const redirect = route.url.searchParams.get('redirect') || '/';
     void navigate(
-      redirect.startsWith('/') && !redirect.startsWith('//') && !redirect.startsWith('/auth')
+      redirect.startsWith('/') &&
+        !redirect.startsWith('//') &&
+        !redirect.includes('\\') &&
+        !redirect.startsWith('/auth')
         ? redirect
         : '/',
       { replace: true },
@@ -83,10 +86,10 @@ export function AuthPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <img src="/static/logo.png" alt="Open WebUI" className="auth-logo" />
+        <Sparkles className="auth-logo" aria-hidden="true" />
         <p className="eyebrow">YOUR PERSONAL AI WORKSPACE</p>
         <h1>{challenge ? 'Secure your session' : 'Welcome to Studio AI'}</h1>
-        <p className="muted">Open WebUI, made at home with Homeframe.</p>
+        <p className="muted">A little room for big ideas.</p>
         <ErrorNotice
           error={error || session.error}
           retry={session.error ? () => void session.refresh() : undefined}
@@ -208,7 +211,7 @@ export function AuthPage() {
               Continue with {label}
             </a>
           ))}
-        <small className="auth-attribution">Open WebUI · Interface by BuiltByTed</small>
+        <small className="auth-attribution">Built by Ted</small>
       </div>
     </div>
   );

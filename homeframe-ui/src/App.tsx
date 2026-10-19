@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   AppScrollView,
   AppShell,
@@ -7,6 +7,7 @@ import {
   AppViewport,
   HomeframeErrorBoundary,
   HomeframeProvider,
+  HomeframeRecovery,
   HomeframeRouterProvider,
   HomeframeSelect,
   Link,
@@ -15,11 +16,13 @@ import {
   createHomeframeRouter,
   useRouteScrollRestoration,
   useRouterSnapshot,
+  useHomeframeUpdate,
 } from '@builtbyted/homeframe';
 import {
   Archive,
   ArrowUpRight,
   Blocks,
+  Code2,
   CalendarDays,
   FolderOpen,
   ChevronDown,
@@ -37,42 +40,114 @@ import {
 import { SessionProvider, useSession } from './lib/session';
 import { ChatProvider, useChat } from './lib/chat';
 import { api, download, segment } from './lib/api';
+import { WatchRedirect, UnavailableChannel } from './pages/Compatibility';
 import { AuthPage } from './pages/Auth';
 import { ChatPage } from './pages/Chat';
-import { ImagesPage } from './pages/Images';
-import { SearchPage } from './pages/Search';
-import { NotesPage } from './pages/Notes';
-import { WorkspacePage } from './pages/Workspace';
-import { SettingsPage } from './pages/Settings';
-import { AdminPage } from './pages/Admin';
-import { FoldersPage } from './pages/Folders';
-import { CalendarPage } from './pages/Calendar';
-import { SharedPage } from './pages/Shared';
+const PlaygroundPage = lazy(() =>
+  import('./pages/Playground').then((module) => ({ default: module.PlaygroundPage })),
+);
+const ImagesPage = lazy(() =>
+  import('./pages/Images').then((module) => ({ default: module.ImagesPage })),
+);
+const SearchPage = lazy(() =>
+  import('./pages/Search').then((module) => ({ default: module.SearchPage })),
+);
+const NotesPage = lazy(() =>
+  import('./pages/Notes').then((module) => ({ default: module.NotesPage })),
+);
+const WorkspacePage = lazy(() =>
+  import('./pages/Workspace').then((module) => ({ default: module.WorkspacePage })),
+);
+const SettingsPage = lazy(() =>
+  import('./pages/Settings').then((module) => ({ default: module.SettingsPage })),
+);
+const AdminPage = lazy(() =>
+  import('./pages/Admin').then((module) => ({ default: module.AdminPage })),
+);
+const FoldersPage = lazy(() =>
+  import('./pages/Folders').then((module) => ({ default: module.FoldersPage })),
+);
+const CalendarPage = lazy(() =>
+  import('./pages/Calendar').then((module) => ({ default: module.CalendarPage })),
+);
+const SharedPage = lazy(() =>
+  import('./pages/Shared').then((module) => ({ default: module.SharedPage })),
+);
+const SecurityPage = lazy(() =>
+  import('./pages/Security').then((module) => ({ default: module.SecurityPage })),
+);
+const MemoriesPage = lazy(() =>
+  import('./pages/Memories').then((module) => ({ default: module.MemoriesPage })),
+);
+const PeoplePage = lazy(() =>
+  import('./pages/People').then((module) => ({ default: module.PeoplePage })),
+);
+const ReportsPage = lazy(() =>
+  import('./pages/Reports').then((module) => ({ default: module.ReportsPage })),
+);
+const AutomationsPage = lazy(() =>
+  import('./pages/Automations').then((module) => ({ default: module.AutomationsPage })),
+);
 import { Composer } from './components/Composer';
+import { InteractionPanel } from './components/InteractionPanel';
+import { ConversationActions } from './components/ConversationActions';
+import { ImageWorkspaceProvider } from './lib/imageWorkspace';
 import { Action, Busy, Empty, ErrorNotice } from './components/ui';
 
 const router = createHomeframeRouter([
+  {
+    id: 'recovery',
+    path: '/__homeframe/recovery',
+    element: (
+      <div className="page">
+        <HomeframeRecovery />
+      </div>
+    ),
+  },
   { id: 'chat', path: '/', element: <ChatPage /> },
   { id: 'home', path: '/home', element: <ChatPage /> },
+  { id: 'watch', path: '/watch', element: <WatchRedirect /> },
+  { id: 'error', path: '/error', element: <HomeframeRecovery /> },
+  { id: 'channel', path: '/channels/:id', element: <UnavailableChannel /> },
+  { id: 'encrypted-channel', path: '/channels/:id/encrypted', element: <UnavailableChannel /> },
   { id: 'conversation', path: '/c/:id', element: <ChatPage /> },
   { id: 'auth', path: '/auth', element: <AuthPage /> },
   { id: 'search', path: '/search', element: <SearchPage /> },
   { id: 'archive', path: '/archive', element: <SearchPage archived /> },
+  { id: 'playground', path: '/playground', element: <PlaygroundPage /> },
+  { id: 'completions', path: '/playground/completions', element: <PlaygroundPage /> },
   { id: 'images', path: '/playground/images', element: <ImagesPage /> },
   { id: 'notes', path: '/notes', element: <NotesPage /> },
   { id: 'note', path: '/notes/:id', element: <NotesPage /> },
   { id: 'workspace', path: '/workspace', element: <WorkspacePage /> },
-  ...['models', 'knowledge', 'prompts', 'tools', 'skills'].flatMap((kind) => [
+  ...['models', 'knowledge', 'prompts', 'tools', 'skills', 'functions'].flatMap((kind) => [
     { id: kind, path: `/workspace/${kind}`, element: <WorkspacePage /> },
     { id: `${kind}-edit`, path: `/workspace/${kind}/:id`, element: <WorkspacePage /> },
   ]),
   { id: 'folders', path: '/folders', element: <FoldersPage /> },
   { id: 'folder', path: '/folders/:id', element: <FoldersPage /> },
   { id: 'calendar', path: '/calendar', element: <CalendarPage /> },
+  { id: 'automations', path: '/automations', element: <AutomationsPage /> },
+  { id: 'automation', path: '/automations/:id', element: <AutomationsPage /> },
   { id: 'shared', path: '/s/:id', element: <SharedPage /> },
   { id: 'settings', path: '/settings', element: <SettingsPage /> },
+  { id: 'security', path: '/settings/security', element: <SecurityPage /> },
+  { id: 'memories', path: '/settings/memories', element: <MemoriesPage /> },
   { id: 'admin', path: '/admin', element: <AdminPage /> },
-  { id: 'admin-users', path: '/admin/users', element: <AdminPage /> },
+  { id: 'admin-users', path: '/admin/users', element: <PeoplePage /> },
+  { id: 'admin-users-tab', path: '/admin/users/:tab', element: <PeoplePage /> },
+  ...['analytics', 'evaluations', 'functions'].flatMap((kind) => [
+    {
+      id: `admin-${kind}`,
+      path: `/admin/${kind}`,
+      element: kind === 'functions' ? <WorkspacePage /> : <ReportsPage />,
+    },
+    {
+      id: `admin-${kind}-tab`,
+      path: `/admin/${kind}/:tab`,
+      element: kind === 'functions' ? <WorkspacePage /> : <ReportsPage />,
+    },
+  ]),
   { id: 'admin-settings', path: '/admin/settings', element: <AdminPage /> },
   { id: 'admin-settings-tab', path: '/admin/settings/:tab', element: <AdminPage /> },
   {
@@ -90,12 +165,21 @@ export function App() {
     <HomeframeProvider>
       <HomeframeRouterProvider router={router}>
         <SessionProvider>
-          <ChatProvider>
-            <ApplicationShell />
-          </ChatProvider>
+          <AccountApplication />
         </SessionProvider>
       </HomeframeRouterProvider>
     </HomeframeProvider>
+  );
+}
+function AccountApplication() {
+  const { user } = useSession();
+  // Recreate all account-owned realtime state when the identity changes.
+  return (
+    <ChatProvider key={user?.id ?? 'anonymous'}>
+      <ImageWorkspaceProvider key={user?.id ?? 'anonymous'} account={user?.id ?? 'anonymous'}>
+        <ApplicationShell />
+      </ImageWorkspaceProvider>
+    </ChatProvider>
   );
 }
 function ApplicationShell() {
@@ -107,16 +191,33 @@ function ApplicationShell() {
     route.url.pathname === '/home' ||
     route.url.pathname.startsWith('/c/');
   useEffect(() => {
-    document.documentElement.dataset.theme = localStorage.getItem('studio:theme') ?? 'system';
+    const media = matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      let choice = 'system';
+      try {
+        choice = localStorage.getItem('studio:theme') ?? 'system';
+      } catch {}
+      document.documentElement.dataset.theme =
+        choice === 'system' ? (media.matches ? 'dark' : 'light') : choice;
+    };
+    apply();
+    media.addEventListener('change', apply);
+    window.addEventListener('studio:theme', apply);
+    return () => {
+      media.removeEventListener('change', apply);
+      window.removeEventListener('studio:theme', apply);
+    };
   }, []);
   return (
     <AppViewport className="studio-viewport">
       <AppShell
         className="studio-shell"
         header={<Header />}
+        headerAttachment={<UpdateNotice />}
         sidebar={session.user ? <Sidebar /> : undefined}
         sidebarFooter={session.user ? <Account /> : undefined}
         sidebarLabel="Workspace navigation"
+        sidePanel={<InteractionPanel />}
         headerPlacement="content"
         mobileSidebarTrigger={false}
         mobileSidebarDismiss={false}
@@ -137,14 +238,25 @@ function ApplicationShell() {
               </div>
             )}
           >
-            {session.loading ? (
+            {route.url.pathname === '/__homeframe/recovery' ? (
+              <Suspense fallback={<Busy />}>
+                <RouterOutlet />
+              </Suspense>
+            ) : session.loading ? (
               <Busy label="Opening your workspace…" />
             ) : session.error ? (
               <div className="page">
                 <ErrorNotice error={session.error} retry={() => void session.refresh()} />
               </div>
+            ) : session.user?.role === 'pending' ? (
+              <Empty title="Your account is awaiting approval">
+                An administrator needs to approve your account.
+                <Action run={session.logout}>Sign out</Action>
+              </Empty>
             ) : session.user || route.url.pathname.startsWith('/s/') ? (
-              <RouterOutlet />
+              <Suspense fallback={<Busy />}>
+                <RouterOutlet />
+              </Suspense>
             ) : (
               <AuthPage />
             )}
@@ -154,9 +266,24 @@ function ApplicationShell() {
     </AppViewport>
   );
 }
+function UpdateNotice() {
+  const update = useHomeframeUpdate();
+  if (!['ready', 'deferred'].includes(update.state)) return null;
+  return (
+    <div className="update-notice" role="status">
+      <span>
+        {update.state === 'deferred'
+          ? 'The update will wait until your work is saved and running jobs finish.'
+          : 'An update is ready.'}
+      </span>
+      <Action run={update.activate}>Update when ready</Action>
+      <button onClick={update.defer}>Later</button>
+    </div>
+  );
+}
 function Sidebar() {
   const chat = useChat();
-  const { config } = useSession();
+  const { config, user } = useSession();
   return (
     <>
       <Link className="brand" to="/">
@@ -167,7 +294,7 @@ function Sidebar() {
           <strong>
             Studio AI<span className="brand-dot">.</span>
           </strong>
-          <small>Open WebUI</small>
+          <small>Built by Ted</small>
         </AppSidebarLabel>
       </Link>
       <nav className="primary-nav">
@@ -176,6 +303,12 @@ function Sidebar() {
           <AppSidebarLabel>New conversation</AppSidebarLabel>
           <AppSidebarLabel className="shortcut">↗</AppSidebarLabel>
         </Link>
+        {(user?.role === 'admin' || user?.permissions?.chat?.temporary) && (
+          <Link to="/?temporary-chat=true">
+            <MessageSquare size={18} />
+            <AppSidebarLabel>Temporary conversation</AppSidebarLabel>
+          </Link>
+        )}
         {[
           { to: '/search', icon: Search, label: 'Search chats' },
           { to: '/playground/images', icon: Image, label: 'Image studio' },
@@ -186,7 +319,13 @@ function Sidebar() {
           ...(config.features?.enable_calendar
             ? [{ to: '/calendar', icon: CalendarDays, label: 'Calendar' }]
             : []),
+          ...(config.features?.enable_automations
+            ? [{ to: '/automations', icon: CalendarDays, label: 'Scheduled tasks' }]
+            : []),
           { to: '/workspace/models', icon: Blocks, label: 'Workspace' },
+          ...(user?.role === 'admin'
+            ? [{ to: '/playground', icon: Code2, label: 'Playground' }]
+            : []),
         ].map((item) => (
           <NavLink key={item.to} to={item.to}>
             <item.icon size={18} />
@@ -285,41 +424,14 @@ function Header() {
                       ? 'Notes'
                       : route.url.pathname.includes('settings')
                         ? 'Settings'
-                        : 'Open WebUI'}
+                        : 'Workspace'}
             </span>
           </Link>
         )}
       </div>
       {user && (
         <div className="header-actions">
-          {isChat && chat.chat?.id && (
-            <details className="chat-menu">
-              <summary aria-label="Conversation actions">
-                <MoreHorizontal size={21} />
-              </summary>
-              <div>
-                <Action run={async () => download(`${chat.chat!.title}.json`, chat.chat)}>
-                  Export
-                </Action>
-                <Action
-                  run={async () => {
-                    await api(`/api/v1/chats/${segment(chat.chat!.id)}/pin`, {});
-                    await chat.refreshList();
-                  }}
-                >
-                  Pin / unpin
-                </Action>
-                <Action
-                  run={async () => {
-                    await api(`/api/v1/chats/${segment(chat.chat!.id)}/archive`, {});
-                    await chat.refreshList();
-                  }}
-                >
-                  Archive / restore
-                </Action>
-              </div>
-            </details>
-          )}
+          {isChat && chat.chat?.id && !chat.temporary && <ConversationActions key={chat.chat.id} />}
           <Link to="/" className="icon-button" aria-label="New conversation">
             <Plus size={20} />
           </Link>

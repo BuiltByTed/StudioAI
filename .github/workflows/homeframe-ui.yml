@@ -28,5 +28,5 @@ jobs:
         if: failure()
         with:
           name: homeframe-browser-results
-          path: homeframe-ui/test-results/
+          path: qa-artifacts/homeframe/playwright/
           retention-days: 7

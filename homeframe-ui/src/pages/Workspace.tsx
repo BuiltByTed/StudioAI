@@ -1,3 +1,4 @@
+import { AccessEditor } from '../components/AccessEditor';
 import { useEffect, useState } from 'react';
 import {
   HomeframeInput,
@@ -10,11 +11,22 @@ import {
   useRouterSnapshot,
 } from '@builtbyted/homeframe';
 import { Blocks, BookOpen, Box, Braces, FileText, Plus, Save, WandSparkles } from 'lucide-react';
-import { api, errorMessage, segment, upload } from '../lib/api';
+import { api, errorMessage, segment, upload, remove, download } from '../lib/api';
 import { useResource } from '../lib/useResource';
 import { useSession } from '../lib/session';
 import { items, object, text, type Dict, type Resource } from '../lib/types';
-import { Action, Busy, Empty, ErrorNotice, Field, JSONField, Page, Toggle } from '../components/ui';
+import {
+  Action,
+  Busy,
+  Empty,
+  ErrorNotice,
+  Field,
+  JSONField,
+  Page,
+  Toggle,
+  validateFields,
+} from '../components/ui';
+import { ConfigFields } from './Admin';
 
 const sections = {
   models: {
@@ -52,6 +64,13 @@ const sections = {
     icon: Braces,
     list: '/api/v1/tools/list',
   },
+  functions: {
+    title: 'Functions',
+    singular: 'function',
+    description: 'Workspace filters, actions and model pipes.',
+    icon: Braces,
+    list: '/api/v1/functions/list',
+  },
 } as const;
 type Section = keyof typeof sections;
 function resourcePath(kind: Section, id: string) {
@@ -63,7 +82,7 @@ function resourcePath(kind: Section, id: string) {
 export function WorkspacePage() {
   const route = useRouterSnapshot();
   const navigate = useNavigate();
-  const { models } = useSession();
+  const { models, user, refresh } = useSession();
   const parts = route.url.pathname.split('/');
   const kind: Section = parts[2] && parts[2] in sections ? (parts[2] as Section) : 'models';
   const meta = sections[kind];
@@ -76,6 +95,16 @@ export function WorkspacePage() {
       ? `${meta.list}${meta.list.includes('?') ? '&' : '?'}page=${page}&query=${encodeURIComponent(query)}`
       : null,
   );
+  const records = items<Resource>(list.data);
+  const matches = Array.isArray(list.data)
+    ? records.filter((item) =>
+        `${item.name ?? ''} ${item.title ?? ''} ${item.id}`
+          .toLocaleLowerCase()
+          .includes(query.toLocaleLowerCase()),
+      )
+    : records;
+  const visible = Array.isArray(list.data) ? matches.slice((page - 1) * 30, page * 30) : matches;
+  const hasNext = Array.isArray(list.data) ? matches.length > page * 30 : records.length >= 30;
   const detail = useResource<Resource>(id && !creating ? resourcePath(kind, id) : null);
   const [draft, setDraft] = useState<Dict>({});
   const [dirty, setDirty] = useState(false);
@@ -129,6 +158,7 @@ export function WorkspacePage() {
       if (kind === 'skills') body.expected_version_id = detail.data?.version_id ?? null;
       const saved = await api<Resource>(path, body);
       setDirty(false);
+      if (kind === 'models' || kind === 'functions') await refresh();
       if (creating) await navigate(`/workspace/${kind}/${segment(saved.id)}`, { replace: true });
       else detail.reload();
     } catch (reason) {
@@ -144,14 +174,35 @@ export function WorkspacePage() {
       description={id ? undefined : meta.description}
       actions={
         id ? (
-          <button
-            className="primary"
-            disabled={busy || (!dirty && !creating)}
-            onClick={() => void save()}
-          >
-            <Save size={16} />
-            {busy ? 'Saving…' : 'Save'}
-          </button>
+          <>
+            <button
+              className="primary"
+              disabled={busy || (!dirty && !creating)}
+              onClick={(event) => {
+                if (validateFields(event.currentTarget)) void save();
+              }}
+            >
+              <Save size={16} />
+              {busy ? 'Saving…' : 'Save'}
+            </button>
+            {!creating && (
+              <>
+                <Action run={async () => download(`${kind}-${id}.json`, draft)}>Export</Action>
+                <Action
+                  disabled={busy}
+                  run={async () => {
+                    if (!window.confirm(`Delete this ${meta.singular}?`)) return;
+                    if (kind === 'models') await api('/api/v1/models/model/delete', { id });
+                    else await remove(`${resourcePath(kind, id)}/delete`);
+                    if (kind === 'models' || kind === 'functions') await refresh();
+                    await navigate(`/workspace/${kind}`);
+                  }}
+                >
+                  Delete
+                </Action>
+              </>
+            )}
+          </>
         ) : (
           <Link className="button primary" to={`/workspace/${kind}/create`}>
             <Plus size={17} />
@@ -161,12 +212,14 @@ export function WorkspacePage() {
       }
     >
       <nav className="tabs" aria-label="Workspace sections">
-        {Object.entries(sections).map(([key, section]) => (
-          <NavLink key={key} to={`/workspace/${key}`} className={key === kind ? 'active' : ''}>
-            <section.icon size={17} />
-            {section.title}
-          </NavLink>
-        ))}
+        {Object.entries(sections)
+          .filter(([key]) => key !== 'functions' || user?.role === 'admin')
+          .map(([key, section]) => (
+            <NavLink key={key} to={`/workspace/${key}`} className={key === kind ? 'active' : ''}>
+              <section.icon size={17} />
+              {section.title}
+            </NavLink>
+          ))}
       </nav>
       <ErrorNotice
         error={error || detail.error || list.error}
@@ -187,9 +240,9 @@ export function WorkspacePage() {
               }}
             />
           </div>
-          {items<Resource>(list.data).length ? (
+          {visible.length ? (
             <div className="card-grid">
-              {items<Resource>(list.data).map((item) => (
+              {visible.map((item) => (
                 <Link
                   key={item.id}
                   className="resource-card"
@@ -219,7 +272,7 @@ export function WorkspacePage() {
               Previous
             </button>
             <span>Page {page}</span>
-            <button disabled={items(list.data).length < 30} onClick={() => setPage(page + 1)}>
+            <button disabled={!hasNext} onClick={() => setPage(page + 1)}>
               Next
             </button>
           </div>
@@ -232,7 +285,7 @@ export function WorkspacePage() {
               onChange={(event) => edit('name', event.target.value)}
             />
           </Field>
-          {creating && ['models', 'tools', 'skills'].includes(kind) && (
+          {creating && ['models', 'tools', 'skills', 'functions'].includes(kind) && (
             <Field label="Identifier" hint="A stable, unique name used to reference this item.">
               <HomeframeInput
                 value={text(draft.id)}
@@ -310,7 +363,7 @@ export function WorkspacePage() {
             </>
           )}
           {kind === 'prompts' && (
-            <Field label="Slash command" hint="Type this command in chat to use your prompt.">
+            <Field label="Slash command" hint="Choose this prompt from Tools in a conversation.">
               <HomeframeInput
                 value={text(draft.command)}
                 placeholder="/summarize"
@@ -318,25 +371,30 @@ export function WorkspacePage() {
               />
             </Field>
           )}
-          {['knowledge', 'skills', 'tools'].includes(kind) && (
+          {['knowledge', 'skills', 'tools', 'functions'].includes(kind) && (
             <Field label="Description">
               <HomeframeTextarea
                 rows={3}
                 value={
-                  kind === 'tools' ? text(object(draft.meta).description) : text(draft.description)
+                  ['tools', 'functions'].includes(kind)
+                    ? text(object(draft.meta).description)
+                    : text(draft.description)
                 }
                 onChange={(event) =>
-                  kind === 'tools'
+                  ['tools', 'functions'].includes(kind)
                     ? edit('meta', { ...object(draft.meta), description: event.target.value })
                     : edit('description', event.target.value)
                 }
               />
             </Field>
           )}
-          {['prompts', 'skills', 'tools'].includes(kind) && (
-            <Field label={kind === 'tools' ? 'Python source' : 'Instructions'}>
+          {['tools', 'functions'].includes(kind) && (
+            <p className="muted">This Python code runs on your server. Only save code you trust.</p>
+          )}
+          {['prompts', 'skills', 'tools', 'functions'].includes(kind) && (
+            <Field label={['tools', 'functions'].includes(kind) ? 'Python source' : 'Instructions'}>
               <HomeframeTextarea
-                className={kind === 'tools' ? 'code-input' : ''}
+                className={['tools', 'functions'].includes(kind) ? 'code-input' : ''}
                 rows={16}
                 value={text(draft.content)}
                 onChange={(event) => edit('content', event.target.value)}
@@ -344,12 +402,91 @@ export function WorkspacePage() {
             </Field>
           )}
           {kind === 'knowledge' && !creating && <KnowledgeFiles id={id} />}
+          {kind === 'models' && (
+            <details>
+              <summary>Model metadata & default tools</summary>
+              <JSONField
+                key={id}
+                label="Model metadata"
+                value={draft.meta}
+                onChange={(value) => edit('meta', value)}
+              />
+            </details>
+          )}
+          {kind !== 'functions' && (
+            <details>
+              <summary>Sharing & permissions</summary>
+              <AccessEditor
+                label="Access grants"
+                value={draft.access_grants ?? []}
+                onChange={(value) => edit('access_grants', value)}
+              />
+            </details>
+          )}
+          {!creating && ['functions', 'skills', 'models'].includes(kind) && (
+            <Action
+              run={async () => {
+                await api(
+                  kind === 'models'
+                    ? `/api/v1/models/model/toggle?id=${segment(id)}`
+                    : `${resourcePath(kind, id)}/toggle`,
+                  {},
+                );
+                if (kind === 'models' || kind === 'functions') await refresh();
+                detail.reload();
+              }}
+            >
+              {draft.is_active === false ? 'Enable' : 'Disable'} {meta.singular}
+            </Action>
+          )}
+          {!creating && kind === 'functions' && (
+            <Action
+              run={async () => {
+                await api(`${resourcePath(kind, id)}/toggle/global`, {});
+                detail.reload();
+              }}
+            >
+              {draft.is_global ? 'Disable global use' : 'Enable globally'}
+            </Action>
+          )}
+          {!creating && ['tools', 'functions'].includes(kind) && (
+            <ResourceValves kind={kind} id={id} />
+          )}
           <p role="status" className="muted">
             {dirty ? 'Unsaved changes' : creating ? 'Ready when you are.' : 'Saved'}
           </p>
         </div>
       )}
     </Page>
+  );
+}
+function ResourceValves({ kind, id }: { kind: string; id: string }) {
+  const [open, setOpen] = useState(false),
+    [draft, setDraft] = useState<unknown>({});
+  const resource = useResource<unknown>(open ? `/api/v1/${kind}/id/${segment(id)}/valves` : null);
+  useEffect(() => setDraft(resource.data ?? {}), [resource.data]);
+  return (
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>Tool configuration (valves)</summary>
+      <ErrorNotice error={resource.error} retry={resource.reload} />
+      {resource.loading ? (
+        <Busy />
+      ) : (
+        resource.data !== null && (
+          <>
+            <ConfigFields value={object(draft)} onChange={setDraft} />
+            <Action
+              run={async () => {
+                await api(`/api/v1/${kind}/id/${segment(id)}/valves/update`, draft);
+                resource.reload();
+              }}
+            >
+              Save configuration
+            </Action>
+          </>
+        )
+      )}
+    </details>
   );
 }
 

@@ -38,6 +38,8 @@ export async function request(path: string, init: RequestInit = {}): Promise<Res
     cache: 'no-store',
   });
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/api/v1/auths') && path !== '/api/config')
+      window.dispatchEvent(new Event('studio:session-expired'));
     const details: unknown = await response
       .json()
       .catch(() => ({ detail: `Request failed (${response.status})` }));
@@ -50,7 +52,7 @@ export async function api<T>(path: string, body?: unknown, options: RequestInit 
     ...(body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) }),
     ...options,
   });
-  return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
+  return decodeJSON<T>(response);
 }
 export const remove = <T>(path: string) => api<T>(path, undefined, { method: 'DELETE' });
 export const segment = (value: string) => encodeURIComponent(value);
@@ -76,4 +78,15 @@ export function download(name: string, data: unknown, type = 'application/json')
   link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export async function decodeJSON<T>(response: Response): Promise<T> {
+  if (response.status === 204) return undefined as T;
+  if (response.headers.get('content-type')?.includes('application/x-ndjson')) {
+    return (await response.text())
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map((line) => JSON.parse(line)) as T;
+  }
+  return response.json() as Promise<T>;
 }

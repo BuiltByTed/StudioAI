@@ -9,14 +9,14 @@ import { Download, ImagePlus, WandSparkles, X } from 'lucide-react';
 import { api, errorMessage } from '../lib/api';
 import { items, type Dict } from '../lib/types';
 import { Busy, Empty, ErrorNotice, Field, Page } from '../components/ui';
+import { useImageWorkspace } from '../lib/imageWorkspace';
 
 export function ImagesPage() {
-  const [prompt, setPrompt] = useState('');
-  const [size, setSize] = useState('1024x1024');
-  const [source, setSource] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [images, setImages] = useState<{ url: string; prompt: string }[]>([]);
+  const { state, setState, busy, setBusy, error, setError, storageError } = useImageWorkspace();
+  const { prompt, size, source, images } = state;
+  const setPrompt = (value: string) => setState((previous) => ({ ...previous, prompt: value }));
+  const setSize = (value: string) => setState((previous) => ({ ...previous, size: value }));
+  const setSource = (value: string) => setState((previous) => ({ ...previous, source: value }));
   const update = useHomeframeUpdate();
   useEffect(
     () => update.registerGuard(() => !busy && !prompt),
@@ -24,6 +24,7 @@ export function ImagesPage() {
   );
   const generate = async (event: FormEvent) => {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError('');
     try {
@@ -36,10 +37,10 @@ export function ImagesPage() {
       const generated = items<{ url: string }>(result);
       if (!generated.length)
         throw new Error('The image service returned no images. Please try again.');
-      setImages((previous) => [
-        ...generated.map((image) => ({ url: image.url, prompt })),
+      setState((previous) => ({
         ...previous,
-      ]);
+        images: [...generated.map((image) => ({ url: image.url, prompt })), ...previous.images],
+      }));
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
@@ -107,12 +108,15 @@ export function ImagesPage() {
             {busy ? 'Creating your image…' : source ? 'Edit image' : 'Generate image'}
           </button>
           <ErrorNotice error={error} />
+          <ErrorNotice error={storageError} />
         </form>
         <div>
           {busy && (
             <div className="image-loading">
               <Busy label="Bringing your idea to life…" />
-              <p className="muted">You can leave this open while the image model works.</p>
+              <p className="muted">
+                You can browse this workspace while the image model works. Keep this tab open.
+              </p>
             </div>
           )}
           {!images.length && !busy ? (

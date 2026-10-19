@@ -16,7 +16,9 @@ import { useChat } from '../lib/chat';
 import { useSession } from '../lib/session';
 import { branch, outputText } from '../lib/history';
 import { errorMessage } from '../lib/api';
-import { object, text, type Message } from '../lib/types';
+import { object, text, items, type Dict, type Message } from '../lib/types';
+import { ResponseFeedback } from '../components/ResponseFeedback';
+import { ReadAloud } from '../components/ReadAloud';
 import { Markdown } from '../components/Markdown';
 import { Busy, ErrorNotice } from '../components/ui';
 
@@ -142,6 +144,39 @@ function MessageView({ message, modelName }: { message: Message; modelName: stri
           <strong>{modelName}</strong>
         </div>
       )}
+      {!isUser && message.output?.some((item) => item.type !== 'message') && (
+        <details className="sources">
+          <summary>Reasoning & tool activity</summary>
+          {message.output
+            .filter((item) => item.type !== 'message')
+            .map((item, index) => (
+              <div key={text(item.id) || index}>
+                <strong>
+                  {text(item.name) || (item.type === 'reasoning' ? 'Reasoning' : 'Tool result')}
+                </strong>
+                {item.type === 'reasoning' ? (
+                  <Markdown>
+                    {items<Dict>(item.content)
+                      .map((part) => text(part.text))
+                      .join('\n')}
+                  </Markdown>
+                ) : (
+                  <pre className="code-input">
+                    {typeof item.arguments === 'string'
+                      ? item.arguments
+                      : Array.isArray(item.output)
+                        ? items<Dict>(item.output)
+                            .map((part) => text(part.text))
+                            .join('\n')
+                        : typeof item.output === 'string'
+                          ? item.output
+                          : JSON.stringify(item.output ?? item, null, 2)}
+                  </pre>
+                )}
+              </div>
+            ))}
+        </details>
+      )}
       {editing ? (
         <div className="stack">
           <HomeframeTextarea
@@ -224,6 +259,8 @@ function MessageView({ message, modelName }: { message: Message; modelName: stri
         >
           {copied ? <Check size={15} /> : <Copy size={15} />}
         </button>
+        {!isUser && message.done !== false && <ResponseFeedback message={message} />}
+        {!isUser && message.done !== false && <ReadAloud content={content} onError={setError} />}
         {isUser ? (
           <button onClick={() => setEditing(!editing)} disabled={state.busy}>
             Edit

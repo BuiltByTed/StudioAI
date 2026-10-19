@@ -3,9 +3,9 @@ import { defineHomeframe } from '@builtbyted/homeframe/vite';
 export default defineHomeframe({
   app: {
     id: '/',
-    name: 'Studio AI (Open WebUI)',
-    shortName: 'Studio AI (Open WebUI)',
-    description: 'Open WebUI, with a Homeframe interface by BuiltByTed.',
+    name: 'Studio AI',
+    shortName: 'Studio AI',
+    description: 'Your personal AI workspace, built by Ted.',
     startUrl: '/',
     scope: '/',
     display: 'standalone',
@@ -18,7 +18,7 @@ export default defineHomeframe({
     shareTarget: { action: '/', method: 'GET', params: { text: 'shared' } },
   },
   splash: {
-    title: 'Studio AI · Open WebUI',
+    title: 'Studio AI',
     logo: './brand/icon.svg',
     generateAppleStartupImages: true,
     appleStatusBarStyle: 'default',

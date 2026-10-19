@@ -4,7 +4,7 @@
 
 - Maintain Open WebUI 0.12.3 backend/API compatibility and all upstream license notices.
 - New React frontend lives in `homeframe-ui`; upstream sources remain available for merges and rollback.
-- Pin Homeframe 0.1.18. Exactly one persistent shell, header, router and primary scroller.
+- Pin the Homeframe 0.1.18-studio.1 compatibility build (see `homeframe-ui/vendor`). Exactly one persistent shell, header, router and primary scroller.
 - No close-menu button at the top of the sidebar. Use Homeframe's supported `mobileSidebarDismiss={false}`; retain backdrop, Escape, and navigation dismissal.
 - Preserve installed identity (`/` start URL, effective `/` scope and identity). Preserve existing session storage, chats, uploads and preferences.
 - No database schema change is needed for a frontend-only release. Validate the existing Alembic revision, a consistent SQLite backup and backward compatibility before cutover.
@@ -13,44 +13,85 @@
 ## Baseline
 
 - Fork: BuiltByTed/StudioAI, branch `homeframe`, based on upstream v0.12.3 / `91ea4e342`.
-- Homeframe: npm `@builtbyted/homeframe@0.1.18`.
+- Homeframe: exact vendored compatibility package `@builtbyted/homeframe@0.1.18-studio.1`; see its source patch and provenance in `homeframe-ui/vendor`.
 - Upstream frontend: Svelte; replacement: React/TypeScript/Vite.
 - Existing worker: upstream unregisters workers and ships no active service worker. Never copy that unregister behavior into the new client.
-- Keep Open WebUI name/logo attribution visible; retain LICENSE and LICENSE_HISTORY.
+- Product name is Studio AI, including sign-in, document title and installed-app metadata. Preserve upstream attribution in About and repository licensing. Installed identity is unchanged.
 
-## Execution ledger
+## Execution ledger — 2026-10-19
 
-| Work | Status |
+Production has **not** been switched. The existing backend and data remain unchanged.
+The replacement has substantial working coverage but is not yet certified for all
+upstream features or all Homeframe device scenarios.
+
+| Work | Verified status |
 | --- | --- |
-| Fork and baseline inventory | Complete |
-| Homeframe shell and responsive sidebar | Implemented; desktop/mobile browser invariants pass |
-| Auth, sessions, MFA and account settings | Sign-in tested against isolated backend; remaining controls in review |
-| Chat history, branching, streaming and tools | Real streaming reply and reload verified; further tool/branch tests pending |
-| Image generation/editing and file attachments | Implemented; integration tests pending |
-| Notes, knowledge, prompts, models, tools, skills | Note/prompt save and reload verified; remaining editors in review |
-| Search, folders, sharing and archives | Folder save and reload verified; remaining paths in review |
-| Admin and enabled integrations | Basic settings implemented; parity review pending |
-| Browser-storage migration and offline/update behavior | Pending |
-| API/visual/functional regression tests | 6 logic tests and 4 browser invariant tests pass; campaign continuing |
-| Staging, consistent backup and cutover rehearsal | Isolated database backup passes integrity check; cutover rehearsal pending |
-| Graceful production switch and monitoring | Pending |
+| Fork, baseline and Studio AI branding | Repository created; product title, login, manifest, splash, icon and README renamed; license notices retained |
+| Persistent Homeframe shell | Desktop/mobile fixture checks: one shell/header/scroller, 16px inputs, no sidebar close-menu button |
+| Authentication | Real staging sign-in; fixture checks for expired sessions versus item-level permission failures; MFA UI implemented, not yet exercised |
+| Chat | Real streaming/reload, file context, Python tool execution, temporary response without history persistence |
+| Images | Real prompt generation and reference-image editing; each about 9.4 seconds for one 512px sample, not a benchmark distribution |
+| Workspace | Notes/prompts save/reload; knowledge and skills CRUD; model/tool/function create/reload/delete round trips passed |
+| Organization | Folders/instructions save/reload, shared conversation and clone, recurring all-day calendar series create/edit/delete |
+| Administration | Isolated pending account/group CRUD; analytics/evaluations/functions/security/memories routes opened; complete control coverage pending |
+| Scheduled tasks | Isolated paused weekly task create/reload/delete; no live task execution |
+| Playground | Real streaming completion and save as conversation |
+| Storage and privacy | User-scoped draft migration including attachments/tools; logout purges private framework checkpoints; temporary drafts not persisted |
+| Browser updates | Built A→B promotion retained draft, deferred activation until safe route, offline recovery, preserved identity and API cache exclusion |
+| Proxy | Automated open-SSE release promotion, authenticated cookies, multipart-sized body, raw WebSocket and static traversal/asset failure checks |
+| Native iOS | Native Safari software-keyboard pan regression passed after framework fix; installed iPhone software keyboard, Notes, landscape and cold draft restore passed; final-artifact recordings pending |
+| Automated tests | Latest focused run: 18 unit + 2 proxy tests; browser run: 16 tests; final source checks still required |
+| Production cutover | Pending final parity, device/update/rollback and live continuity gates |
 
-Do not call pending features complete or deploy a partial replacement as full parity. Runtime evidence and private deployment details belong in ignored artifacts, not this public repository.
+## Evidence and measured changes
 
-## Verified development pass
+Private operator artifacts contain executable integration scripts, logs, screenshots
+and native xcresult bundles. They contain private conversation data and are not published.
+Each check above states what it tested; implementation alone is not a PASS.
 
-- Strict TypeScript and production build pass. Homeframe doctor reports zero errors and zero warnings.
-- Authenticated desktop home, mobile home, open mobile drawer, image studio and model workspace screenshots were inspected.
-- One real model response arrived in approximately seven seconds; the saved conversation reloaded correctly. This is an integration smoke measurement, not a benchmark distribution.
-- Notes, prompts and folders survive save and reload against the isolated backend.
-- Browser fixture tests cover one persistent shell/header/scroller, sidebar dismissal without a close-menu row, 16px mobile controls, draft reload and recoverable request errors.
-- No production cutover has occurred. No production schema or data has been modified.
+- Strict TypeScript, production build and Homeframe doctor passed before the latest
+  prompt-picker and temporary-chat additions. The final source must be checked again.
+- Initial bundled JavaScript decreased from 889.53 KB (263.80 KB gzip) to 289.52 KB
+  (91.13 KB gzip) by deferring editors and rich Markdown/math rendering. This is a
+  build-size comparison, not a measured startup-latency claim.
+- Fixed verified compatibility defects: folder metadata must be an object instead
+  of null; conversation exports use NDJSON; calendar instances edit their original
+  series anchor; tool questions reject empty/unsupported answers; stale requests
+  cannot insert responses into a different conversation; saved image state is bounded
+  and validated; note saves preserve unrelated fields and detect stale edits.
+- Native iOS Safari testing reproduced a header moving out of view during keyboard
+  panning. The fix belongs to Homeframe's viewport runtime and is delivered with
+  an exact vendored compatibility package and source patch. Framework validation:
+  194 unit tests, 68 browser tests, typecheck, build and package-contract checks.
+  Native reproduction passes after the fix. Installed iPhone tests also pass
+  software-letter-key input, header/dock bounds, portrait/landscape navigation and
+  terminated-app draft restoration. Physical device validation remains distinct.
+- Real feedback testing found that the shared async action component discarded
+  accessible labels and pressed states. It now forwards native button attributes
+  and defaults to type=button so actions inside the composer cannot submit a chat.
 
-## Next executable checks
+## Next executable actions
 
-1. Finish calendar and sandbox execution integration tests.
-2. Complete upstream draft migration (attachments, selected tools and per-chat options), privacy boundaries and pending-input handling.
-3. Test image generation/edit, file context, web search and code execution with real backends.
-4. Complete the route/feature parity review in ROUTE_INVENTORY.md, including sharing, account/security, admin, advanced chat and currently enabled integrations.
-5. Exercise production-built metadata, service worker update/rollback, offline behavior, dark mode and device keyboard scenarios.
-6. Prepare and rehearse a frontend-only graceful proxy cutover while preserving in-flight backend requests. Deploy only after these gates pass.
+1. Complete final-artifact installed-app and keyboard
+   recordings against the final artifact.
+2. Finish web-link retrieval, downloads/imports, sharing permissions,
+   image workspace restoration and remaining enabled admin controls.
+3. Complete the route/feature inventory; explicitly classify disabled deployment
+   features and unresolved parity rather than silently omitting them.
+4. Run final source checks and browser regressions; commit/publish reviewed changes.
+5. Rehearse active-generation, multi-tab and rollback updates; measure final startup.
+6. Promote the tested immutable artifact with a graceful proxy change, preserving
+   the existing backend, active requests and previous frontend assets. Monitor and
+   report the deployed revision and remaining validation limits.
+
+## Dependency review
+
+KaTeX and all nested copies are pinned to 0.18.2, addressing
+[GHSA-238p-pmpm-9mq7](https://github.com/KaTeX/KaTeX/security/advisories/GHSA-238p-pmpm-9mq7).
+The remaining audit alerts are Homeframe's build-time `sharp` dependency:
+[libheif](https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c)
+and [librsvg](https://github.com/lovell/sharp/security/advisories/GHSA-wq5f-xc86-pv6w).
+It processes the checked-in branding asset during the build; it is not installed
+or imported by the production static/proxy server. No untrusted uploaded image is
+processed by that deployment process. Keep build inputs trusted and track an
+upstream patched image-tool release.

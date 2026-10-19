@@ -311,3 +311,9 @@ cypress/videos
 cypress/screenshots
 .vscode/settings.json
 .cptr
+
+# Generated Homeframe browser evidence (never application source)
+/qa-artifacts/
+
+# Reviewed, pinned Homeframe compatibility distribution used by npm ci
+!/homeframe-ui/vendor/builtbyted-homeframe-0.1.18-studio.1.tgz

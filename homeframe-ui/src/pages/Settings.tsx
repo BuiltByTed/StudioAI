@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HomeframeInput, HomeframeSelect, HomeframeTextarea } from '@builtbyted/homeframe';
+import { HomeframeInput, HomeframeSelect, HomeframeTextarea, Link } from '@builtbyted/homeframe';
 import { Download, LogOut, Save } from 'lucide-react';
 import { api, download, errorMessage } from '../lib/api';
 import { useSession } from '../lib/session';
@@ -18,8 +18,10 @@ export function SettingsPage() {
     setError('');
     try {
       await session.saveSettings({ ui: { [key]: value } });
+      return true;
     } catch (reason) {
       setError(errorMessage(reason));
+      return false;
     }
   };
   return (
@@ -27,6 +29,18 @@ export function SettingsPage() {
       eyebrow="MAKE YOURSELF AT HOME"
       title="Settings"
       description="A workspace that works the way you do."
+      actions={
+        <>
+          <Link className="button" to="/settings/security">
+            Account security
+          </Link>
+          {session.config.features?.enable_memories && (
+            <Link className="button" to="/settings/memories">
+              Memories
+            </Link>
+          )}
+        </>
+      }
     >
       <ErrorNotice error={error} />
       <div className="settings-grid">
@@ -64,7 +78,7 @@ export function SettingsPage() {
                 setTheme(value);
                 localStorage.setItem('studio:theme', value);
                 localStorage.setItem('theme', value);
-                document.documentElement.dataset.theme = value;
+                window.dispatchEvent(new Event('studio:theme'));
               }}
             >
               <option value="system">Follow device</option>
@@ -123,8 +137,7 @@ export function SettingsPage() {
           </Field>
           <Action
             run={async () => {
-              await preference('params', { ...object(ui.params), system });
-              setSaved(true);
+              setSaved(await preference('params', { ...object(ui.params), system }));
             }}
           >
             {saved ? 'Saved' : 'Save instructions'}
@@ -133,10 +146,10 @@ export function SettingsPage() {
         <section className="card stack">
           <h2>Your data</h2>
           <p className="muted">
-            Download your conversations in Open WebUI format. Your chats stay on this server.
+            Download your conversations as JSON. Your chats stay on this server.
           </p>
           <Action
-            run={async () => download('open-webui-chats.json', await api('/api/v1/chats/all'))}
+            run={async () => download('studio-ai-chats.json', await api('/api/v1/chats/all'))}
           >
             <Download size={16} />
             Export conversations
@@ -153,7 +166,7 @@ export function SettingsPage() {
                   .then(async (content) => {
                     const chats: unknown = JSON.parse(content);
                     if (!Array.isArray(chats))
-                      throw new Error('Choose an Open WebUI conversation export.');
+                      throw new Error('Choose a Studio AI or Open WebUI conversation export.');
                     await api('/api/v1/chats/import', { chats });
                   })
                   .catch((reason) => setError(errorMessage(reason)));

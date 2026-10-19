@@ -1,14 +1,15 @@
-import { Link, useRouterSnapshot } from '@builtbyted/homeframe';
+import { Link, useNavigate, useRouterSnapshot } from '@builtbyted/homeframe';
 import { useResource } from '../lib/useResource';
 import { useSession } from '../lib/session';
 import { branch, normalizeHistory, outputText } from '../lib/history';
-import { segment } from '../lib/api';
+import { api, segment } from '../lib/api';
 import type { Chat } from '../lib/types';
-import { Busy, ErrorNotice, Page } from '../components/ui';
+import { Action, Busy, ErrorNotice, Page } from '../components/ui';
 import { Markdown } from '../components/Markdown';
 
 export function SharedPage() {
-  const route = useRouterSnapshot();
+  const route = useRouterSnapshot(),
+    navigate = useNavigate();
   const { user } = useSession();
   const id = route.url.pathname.split('/')[2] ?? '';
   const resource = useResource<Chat>(`/api/v1/chats/share/${segment(id)}`);
@@ -28,6 +29,16 @@ export function SharedPage() {
                 <Markdown>{outputText(message)}</Markdown>
               </article>
             ))}
+            {user && (
+              <Action
+                run={async () => {
+                  const saved = await api<Chat>(`/api/v1/chats/${segment(id)}/clone/shared`, {});
+                  await navigate(`/c/${segment(saved.id)}`);
+                }}
+              >
+                Copy to my conversations
+              </Action>
+            )}
             {user && resource.data.chat.share_mode === 'continue' && (
               <Link className="button primary" to={`/c/${segment(resource.data.id)}`}>
                 Continue conversation

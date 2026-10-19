@@ -1,26 +1,17 @@
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import 'katex/dist/katex.min.css';
-
+import { lazy, Suspense } from 'react';
+const RichMarkdown = lazy(() =>
+  import('./RichMarkdown').then((module) => ({ default: module.Markdown })),
+);
 export function Markdown({ children }: { children: string }) {
   return (
-    <div className="markdown selectable">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
-        components={{
-          a: ({ children: label, ...props }) => (
-            <a {...props} target="_blank" rel="noopener noreferrer">
-              {label}
-            </a>
-          ),
-          img: (props) => <img {...props} loading="lazy" />,
-        }}
-      >
-        {children}
-      </ReactMarkdown>
-    </div>
+    <Suspense
+      fallback={
+        <div className="markdown selectable">
+          <pre className="markdown-loading">{children}</pre>
+        </div>
+      }
+    >
+      <RichMarkdown>{children}</RichMarkdown>
+    </Suspense>
   );
 }

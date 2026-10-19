@@ -2,7 +2,7 @@
 
 React interface for the Open WebUI 0.12.3 backend. The upstream backend, original
 frontend and license notices remain in this repository for maintenance and
-rollback. This frontend uses `@builtbyted/homeframe@0.1.18` for viewport, keyboard,
+rollback. This frontend uses `@builtbyted/homeframe@0.1.18-studio.1` for viewport, keyboard,
 safe-area, routing, shell and PWA ownership.
 
 **Migration in progress. Do not replace a production frontend until the coverage

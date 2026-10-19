@@ -3,9 +3,12 @@ import {
   cloneElement,
   isValidElement,
   useId,
+  useEffect,
+  useRef,
   useState,
   type ReactNode,
   type ReactElement,
+  type ButtonHTMLAttributes,
 } from 'react';
 import { AlertCircle, ArrowRight, LoaderCircle } from 'lucide-react';
 import { HomeframeInput, HomeframeSelect, HomeframeTextarea, Link } from '@builtbyted/homeframe';
@@ -25,7 +28,7 @@ export function Page({
   children: ReactNode;
 }) {
   return (
-    <section className="page">
+    <section className="page" data-validation-scope>
       <div className="page-heading">
         <div>
           {eyebrow && <p className="eyebrow">{eyebrow}</p>}
@@ -144,7 +147,8 @@ export function Action({
   run,
   className = '',
   disabled = false,
-}: {
+  ...attributes
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> & {
   children: ReactNode;
   run: () => Promise<unknown>;
   className?: string;
@@ -155,9 +159,12 @@ export function Action({
   return (
     <>
       <button
+        {...attributes}
+        type={attributes.type ?? 'button'}
         className={className}
         disabled={disabled || busy}
-        onClick={() => {
+        onClick={(event) => {
+          if (!validateFields(event.currentTarget)) return;
           setBusy(true);
           setError('');
           void run()
@@ -172,6 +179,18 @@ export function Action({
     </>
   );
 }
+export function validateFields(element: HTMLElement) {
+  const invalid = element
+    .closest('[data-validation-scope]')
+    ?.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+      'input:invalid, textarea:invalid, select:invalid',
+    );
+  if (invalid) {
+    invalid.reportValidity();
+    return false;
+  }
+  return true;
+}
 export function JSONField({
   label,
   value,
@@ -181,21 +200,38 @@ export function JSONField({
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
-  const [draft, setDraft] = useState(JSON.stringify(value ?? {}, null, 2));
+  const serialized = JSON.stringify(value ?? {}, null, 2);
+  const [draft, setDraft] = useState(serialized);
+  const lastValue = useRef(serialized);
+  const field = useRef<HTMLTextAreaElement>(null);
   const [error, setError] = useState('');
+  useEffect(() => {
+    if (serialized !== lastValue.current) {
+      setDraft(serialized);
+      setError('');
+      field.current?.setCustomValidity('');
+    }
+    lastValue.current = serialized;
+  }, [serialized]);
   return (
     <Field label={label}>
       <HomeframeTextarea
+        ref={field}
         className="code-input"
         rows={12}
         value={draft}
+        aria-invalid={!!error}
         onChange={(event) => {
           setDraft(event.target.value);
           try {
-            onChange(JSON.parse(event.target.value));
+            const parsed: unknown = JSON.parse(event.target.value);
+            lastValue.current = JSON.stringify(parsed, null, 2);
+            onChange(parsed);
             setError('');
+            event.target.setCustomValidity('');
           } catch {
             setError('Enter valid JSON before saving.');
+            event.target.setCustomValidity('Enter valid JSON before saving.');
           }
         }}
       />

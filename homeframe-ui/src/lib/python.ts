@@ -6,14 +6,30 @@ import { object, text, type Dict } from './types';
 
 let sandbox: PyodideSandboxHost | null = null;
 let queue: Promise<unknown> = Promise.resolve();
+let generation = 0;
+let requests = new AbortController();
+const cancellations = new Set<() => void>();
 export function disposePython() {
+  generation++;
+  requests.abort();
+  requests = new AbortController();
+  for (const cancel of [...cancellations]) cancel();
   sandbox?.terminate();
   sandbox = null;
+  queue = Promise.resolve();
 }
 export function executePython(data: Dict): Promise<Dict> {
+  const identity = generation;
+  const signal = requests.signal;
   const work = queue
     .catch(() => undefined)
     .then(async () => {
+      if (identity !== generation)
+        return {
+          stderr: 'Execution cancelled because the session changed.',
+          stdout: null,
+          result: null,
+        };
       const worker = (sandbox ??= new PyodideSandboxHost());
       const id = text(data.id) || crypto.randomUUID();
       const code = text(data.code);
@@ -21,12 +37,20 @@ export function executePython(data: Dict): Promise<Dict> {
       for (const item of Array.isArray(data.files) ? data.files : []) {
         const file = object(item);
         if (!text(file.id)) continue;
-        const response = await request(`/api/v1/files/${segment(text(file.id))}/content`);
+        const response = await request(`/api/v1/files/${segment(text(file.id))}/content`, {
+          signal,
+        });
         files.push({
           name: (text(file.filename) || text(file.name) || 'file').split(/[\\/]/).at(-1)!,
           data: await response.arrayBuffer(),
         });
       }
+      if (identity !== generation)
+        return {
+          stderr: 'Execution cancelled because the session changed.',
+          stdout: null,
+          result: null,
+        };
       const packages = Object.entries({
         numpy: 'numpy',
         pandas: 'pandas',
@@ -48,6 +72,19 @@ export function executePython(data: Dict): Promise<Dict> {
           clearTimeout(timer);
           worker.removeEventListener('message', onMessage);
           worker.removeEventListener('error', onError);
+          cancellations.delete(cancel);
+        };
+        const cancel = () => {
+          cleanup();
+          resolve({
+            stderr: 'Execution cancelled because the session changed.',
+            stdout: null,
+            result: null,
+          });
+        };
+        const terminate = () => {
+          worker.terminate();
+          if (sandbox === worker) sandbox = null;
         };
         const onMessage = (event: MessageEvent) => {
           const result = object(event.data);
@@ -61,18 +98,19 @@ export function executePython(data: Dict): Promise<Dict> {
         };
         const onError = () => {
           cleanup();
-          disposePython();
+          terminate();
           resolve({ stderr: 'The Python sandbox could not start.', stdout: null, result: null });
         };
         const timer = setTimeout(() => {
           cleanup();
-          disposePython();
+          terminate();
           resolve({
             stderr: 'Execution time limit exceeded (60 seconds).',
             stdout: null,
             result: null,
           });
         }, 60000);
+        cancellations.add(cancel);
         worker.addEventListener('message', onMessage);
         worker.addEventListener('error', onError);
         worker.postMessage({ type: 'execute', id, code, files, packages });

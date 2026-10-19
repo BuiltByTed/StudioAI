@@ -39,6 +39,8 @@ body,
   box-sizing: border-box;
 }
 .studio-viewport {
+  --hf-header-background: var(--surface);
+  --hf-dock-background: var(--surface);
   background: var(--surface);
   color: var(--ink);
 }
@@ -1500,4 +1502,85 @@ details > .field {
   .inline-form .field {
     flex-basis: 100%;
   }
+}
+
+.tool-selector {
+  position: relative;
+  font-size: 13px;
+}
+.tool-selector > summary {
+  cursor: pointer;
+  padding: 7px;
+}
+.tool-selector > div {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  width: 275px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 8px 25px #0002;
+  z-index: 10;
+}
+
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 24px;
+  background: var(--accent-soft);
+  font-size: 13px;
+}
+.update-notice span {
+  flex: 1;
+}
+
+.chat-menu > div {
+  width: 300px;
+  max-height: min(560px, calc(var(--hf-viewport-height) - var(--hf-header-height) - 24px));
+  overflow: auto;
+}
+.chat-menu > div .field {
+  text-align: left;
+  width: 100%;
+}
+
+.table-scroll {
+  overflow: auto;
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+}
+.table-scroll th,
+.table-scroll td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.table-scroll th {
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.markdown-loading {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
+.feedback-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }

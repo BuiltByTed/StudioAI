@@ -6,6 +6,7 @@ import {
   useHomeframeUpdate,
   useNavigate,
   useRouterSnapshot,
+  useStateCheckpoint,
 } from '@builtbyted/homeframe';
 import { FileText, Plus, Save } from 'lucide-react';
 import { api, errorMessage, segment } from '../lib/api';
@@ -13,10 +14,12 @@ import { useResource } from '../lib/useResource';
 import { object, text, type Resource } from '../lib/types';
 import { Busy, Empty, ErrorNotice, Field, Page } from '../components/ui';
 import { Markdown } from '../components/Markdown';
+import { useSession } from '../lib/session';
 
 export function NotesPage() {
   const route = useRouterSnapshot();
   const navigate = useNavigate();
+  const { user } = useSession();
   const id = route.url.pathname.split('/')[2] ?? '';
   const list = useResource<Resource[]>(!id ? '/api/v1/notes/' : null);
   const note = useResource<Resource>(id && id !== 'new' ? `/api/v1/notes/${segment(id)}` : null);
@@ -26,11 +29,16 @@ export function NotesPage() {
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [checkpoint, setCheckpoint] = useStateCheckpoint<{
+    title: string;
+    content: string;
+    baseVersion: unknown;
+  } | null>({ key: `note:${user?.id}:${id}`, initialValue: null, storage: 'local' });
   const update = useHomeframeUpdate();
   useEffect(() => {
-    setTitle(note.data?.title ?? '');
-    setContent(text(object(note.data?.data?.content).md));
-    setDirty(false);
+    setTitle(checkpoint?.title ?? note.data?.title ?? '');
+    setContent(checkpoint?.content ?? text(object(note.data?.data?.content).md));
+    setDirty(!!checkpoint);
     setError('');
   }, [id, note.data]);
   useEffect(() => update.registerGuard(() => !dirty && !busy), [dirty, busy, update.registerGuard]);
@@ -38,17 +46,28 @@ export function NotesPage() {
     setBusy(true);
     setError('');
     try {
+      if (id !== 'new') {
+        const latest = await api<Resource>(`/api/v1/notes/${segment(id)}`);
+        const expected = checkpoint?.baseVersion ?? note.data?.updated_at;
+        if (expected && latest.updated_at !== expected)
+          throw new Error(
+            'This note changed in another session. Your draft is saved locally. Copy your changes before reloading the server version.',
+          );
+      }
       const saved = await api<Resource>(
         id === 'new' ? '/api/v1/notes/create' : `/api/v1/notes/${segment(id)}/update`,
         {
           title: title || 'Untitled note',
           data: {
             ...note.data?.data,
-            content: { ...object(note.data?.data?.content), md: content },
+            // Upstream falls back to markdown when rich representations are absent.
+            // Retaining old HTML/JSON would show stale content after rollback.
+            content: { md: content, html: null, json: null },
           },
         },
       );
       setDirty(false);
+      setCheckpoint(null);
       if (id === 'new') await navigate(`/notes/${saved.id}`, { replace: true });
       else note.reload();
     } catch (reason) {
@@ -96,6 +115,20 @@ export function NotesPage() {
       title={id === 'new' ? 'A new page' : title || 'Untitled note'}
       actions={
         <>
+          {dirty && (
+            <button
+              onClick={() => {
+                if (!window.confirm('Discard the locally saved changes to this note?')) return;
+                setCheckpoint(null);
+                setDirty(false);
+                setTitle(note.data?.title ?? '');
+                setContent(text(object(note.data?.data?.content).md));
+                if (id !== 'new') note.reload();
+              }}
+            >
+              Discard draft
+            </button>
+          )}
           <button onClick={() => setPreview(!preview)}>{preview ? 'Edit' : 'Preview'}</button>
           <button
             className="primary"
@@ -118,6 +151,11 @@ export function NotesPage() {
               value={title}
               onChange={(event) => {
                 setTitle(event.target.value);
+                setCheckpoint({
+                  title: event.target.value,
+                  content,
+                  baseVersion: checkpoint?.baseVersion ?? note.data?.updated_at,
+                });
                 setDirty(true);
               }}
             />
@@ -132,6 +170,11 @@ export function NotesPage() {
                 value={content}
                 onChange={(event) => {
                   setContent(event.target.value);
+                  setCheckpoint({
+                    title,
+                    content: event.target.value,
+                    baseVersion: checkpoint?.baseVersion ?? note.data?.updated_at,
+                  });
                   setDirty(true);
                 }}
                 placeholder="Start writing… Markdown is welcome."

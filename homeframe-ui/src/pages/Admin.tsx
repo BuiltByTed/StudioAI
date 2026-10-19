@@ -4,13 +4,15 @@ import {
   HomeframeTextarea,
   NavLink,
   useRouterSnapshot,
+  useHomeframeUpdate,
 } from '@builtbyted/homeframe';
 import { Save } from 'lucide-react';
 import { api } from '../lib/api';
 import { useResource } from '../lib/useResource';
 import { useSession } from '../lib/session';
 import { items, object, text, type Dict, type User } from '../lib/types';
-import { Action, Busy, Empty, ErrorNotice, Field, Page, Toggle } from '../components/ui';
+import { Action, Busy, Empty, ErrorNotice, Field, Page, Toggle, JSONField } from '../components/ui';
+import { AdminNav } from '../components/AdminNav';
 
 const sections: Record<string, { name: string; read: string; write: string }> = {
   general: {
@@ -32,6 +34,52 @@ const sections: Record<string, { name: string; read: string; write: string }> = 
     write: '/api/v1/configs/code_execution',
   },
   audio: { name: 'Audio', read: '/api/v1/audio/config', write: '/api/v1/audio/config/update' },
+  ollama: { name: 'Ollama', read: '/ollama/config', write: '/ollama/config/update' },
+  integrations: {
+    name: 'Tools & integrations',
+    read: '/api/v1/configs/tool_servers',
+    write: '/api/v1/configs/tool_servers',
+  },
+  subagents: {
+    name: 'Subagents',
+    read: '/api/v1/configs/subagents',
+    write: '/api/v1/configs/subagents',
+  },
+  evaluations: {
+    name: 'Evaluation settings',
+    read: '/api/v1/evaluations/config',
+    write: '/api/v1/evaluations/config',
+  },
+  tasks: {
+    name: 'Background tasks',
+    read: '/api/v1/tasks/config',
+    write: '/api/v1/tasks/config/update',
+  },
+  authentication: {
+    name: 'Authentication',
+    read: '/api/v1/configs/namespace/auth',
+    write: '/api/v1/configs/import',
+  },
+  interface: {
+    name: 'Interface',
+    read: '/api/v1/configs/namespace/ui',
+    write: '/api/v1/configs/import',
+  },
+  oauth: {
+    name: 'OAuth',
+    read: '/api/v1/auths/admin/config/oauth',
+    write: '/api/v1/auths/admin/config/oauth',
+  },
+  ldap: {
+    name: 'LDAP',
+    read: '/api/v1/auths/admin/config/ldap/server',
+    write: '/api/v1/auths/admin/config/ldap/server',
+  },
+  advanced: {
+    name: 'All server settings',
+    read: '/api/v1/configs/export',
+    write: '/api/v1/configs/import',
+  },
 };
 const label = (key: string) =>
   key
@@ -41,14 +89,24 @@ const label = (key: string) =>
 export function AdminPage() {
   const { user } = useSession();
   const route = useRouterSnapshot();
-  const tab = route.url.pathname.split('/').filter(Boolean).at(-1) ?? 'general';
-  const section = sections[tab] ?? sections.general!;
+  const original = route.url.pathname.split('/').filter(Boolean).at(-1) ?? 'general';
+  const aliases: Record<string, string> = {
+    admin: 'general',
+    settings: 'general',
+    web: 'search',
+    documents: 'search',
+    'code-execution': 'code',
+  };
+  const tab = aliases[original] ?? original;
+  const section = sections[tab];
   const isUsers = tab === 'users';
   const resource = useResource<Dict>(
-    user?.role === 'admin' ? (isUsers ? '/api/v1/users/' : section.read) : null,
+    user?.role === 'admin' ? (isUsers ? '/api/v1/users/' : (section?.read ?? null)) : null,
   );
   const [draft, setDraft] = useState<Dict>({});
   const [dirty, setDirty] = useState(false);
+  const update = useHomeframeUpdate();
+  useEffect(() => update.registerGuard(() => !dirty), [dirty, update.registerGuard]);
   useEffect(() => {
     setDraft(resource.data ?? {});
     setDirty(false);
@@ -58,6 +116,14 @@ export function AdminPage() {
       <Empty title="Administrator access required">
         Ask your administrator to manage this workspace.
       </Empty>
+    );
+  if (!section && !isUsers)
+    return (
+      <Empty
+        title="That settings section is unavailable"
+        to="/admin/settings/general"
+        action="Open server settings"
+      />
     );
   return (
     <Page
@@ -70,7 +136,16 @@ export function AdminPage() {
             className="primary"
             disabled={!dirty}
             run={async () => {
-              await api(section.write, draft);
+              if (!section) return;
+              const changed = Object.fromEntries(
+                Object.entries(draft).filter(
+                  ([key, value]) => JSON.stringify(value) !== JSON.stringify(resource.data?.[key]),
+                ),
+              );
+              await api(
+                section.write,
+                section.write.endsWith('/import') ? { config: changed } : draft,
+              );
               resource.reload();
               setDirty(false);
             }}
@@ -81,6 +156,7 @@ export function AdminPage() {
         )
       }
     >
+      <AdminNav />
       <nav className="tabs">
         <NavLink to="/admin/users" className={isUsers ? 'active' : ''}>
           People
@@ -112,7 +188,22 @@ export function AdminPage() {
           ))}
         </div>
       ) : (
-        <div className="card stack">
+        <div className="card stack" data-validation-scope>
+          <details>
+            <summary>Advanced configuration editor</summary>
+            <p className="muted">
+              Full configuration, including connection lists and credentials. Keep credentials
+              private.
+            </p>
+            <JSONField
+              label="Configuration JSON"
+              value={draft}
+              onChange={(value) => {
+                setDraft(object(value));
+                setDirty(true);
+              }}
+            />
+          </details>
           <ConfigFields
             value={draft}
             onChange={(value) => {
@@ -125,7 +216,13 @@ export function AdminPage() {
     </Page>
   );
 }
-function ConfigFields({ value, onChange }: { value: Dict; onChange: (value: Dict) => void }) {
+export function ConfigFields({
+  value,
+  onChange,
+}: {
+  value: Dict;
+  onChange: (value: Dict) => void;
+}) {
   return (
     <>
       {Object.entries(value).map(([key, entry]) => {
