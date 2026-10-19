@@ -25,8 +25,15 @@ test('promotes a static release while API streams and old assets remain availabl
   for (const name of ['before', 'after']) {
     await mkdir(join(releases, name));
     await mkdir(join(releases, name, 'assets'));
-    await writeFile(join(releases, name, 'index.html'), `<h1>${name}</h1>`);
+    await writeFile(
+      join(releases, name, 'index.html'),
+      `<h1>${name}</h1><script>window.fixture=true;</script>`,
+    );
     await writeFile(join(releases, name, 'sw.js'), `// ${name}`);
+    await writeFile(
+      join(releases, name, 'manifest.webmanifest'),
+      '{"id":"/","scope":"/","start_url":"/"}',
+    );
     await writeFile(
       join(releases, name, 'homeframe-build.json'),
       JSON.stringify({ buildId: name }),
@@ -37,6 +44,11 @@ test('promotes a static release while API streams and old assets remain availabl
   await symlink(join(releases, 'before'), current);
   let finish = () => {};
   const backend = http.createServer((req, res) => {
+    if (req.url === '/api/missing' || req.url === '/api/v1/files/fixture/content') {
+      res.setHeader('Content-Type', 'text/html');
+      res.end('<html>backend content</html>');
+      return;
+    }
     if (req.url === '/api/stream?model=fixture') {
       assert.equal(req.headers.authorization, 'Bearer fixture-only');
       res.writeHead(200, {
@@ -75,6 +87,25 @@ test('promotes a static release while API streams and old assets remain availabl
     await rm(root, { recursive: true, force: true });
   });
   assert.match(await (await fetch(base + '/')).text(), /before/);
+  assert.match(await (await fetch(base + '/__homeframe/recovery')).text(), /before/);
+  assert.match(await (await fetch(base + '/__homeframe/doctor-route')).text(), /before/);
+  const manifestRevision = createHash('sha256')
+    .update('{"id":"/","scope":"/","start_url":"/"}')
+    .digest('hex')
+    .slice(0, 16);
+  assert.equal(
+    (await fetch(base + '/manifest.json?v=' + manifestRevision)).headers.get('cache-control'),
+    'no-cache',
+  );
+  const policy = (await fetch(base + '/')).headers.get('content-security-policy')!;
+  assert.match(policy, /script-src 'self' 'sha256-/);
+  assert.ok(policy.includes(createHash('sha256').update('window.fixture=true;').digest('base64')));
+  assert.ok(!policy.includes("'unsafe-eval'"));
+  assert.equal((await fetch(base + '/api/missing')).status, 404);
+  assert.match(
+    await (await fetch(base + '/api/v1/files/fixture/content')).text(),
+    /backend content/,
+  );
   const stream = await fetch(base + '/api/stream?model=fixture', {
     headers: { Authorization: 'Bearer fixture-only' },
   });

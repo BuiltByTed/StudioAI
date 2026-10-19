@@ -56,6 +56,28 @@ const isBackend = (path: string) =>
   passthrough.some((prefix) => path === prefix || path.startsWith(prefix + '/')) ||
   legacyAssets.has(path);
 const digest = (bytes: Buffer | string) => createHash('sha256').update(bytes).digest('hex');
+function documentPolicy(html: string, python = false) {
+  const hashes = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter((match) => !/\bsrc\s*=/i.test(match[1]!))
+    .map((match) => `'sha256-${createHash('sha256').update(match[2]!).digest('base64')}'`);
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${hashes.join(' ')}${python ? " 'unsafe-eval' 'wasm-unsafe-eval' http: https: blob:" : ''}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https: ws: wss:" + (python ? ' http: data: blob:' : ''),
+    "media-src 'self' blob: data: https:",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    "frame-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+    ...(python ? ['sandbox allow-scripts'] : []),
+  ].join('; ');
+}
 function error(res: ServerResponse, status: number, message: string) {
   if (res.headersSent) {
     res.destroy();
@@ -81,6 +103,19 @@ export function createFrontendServer(options: Options) {
   });
   const proxy = (req: IncomingMessage, res: ServerResponse) => {
     const outgoing = transport.request(requestOptions(req), (incoming) => {
+      const path = new URL(req.url ?? '/', 'http://frontend.invalid').pathname;
+      if (
+        path.startsWith('/api/') &&
+        !/^\/api\/v1\/files\/[^/]+\/content$/.test(path) &&
+        !incoming.headers['content-disposition'] &&
+        incoming.headers['content-type']?.includes('text/html')
+      ) {
+        // The upstream SPA also catches unknown /api routes. Preserve real HTML
+        // file downloads, but never return an application shell as an API result.
+        incoming.resume();
+        error(res, 404, 'This API endpoint is unavailable.');
+        return;
+      }
       res.writeHead(incoming.statusCode ?? 502, incoming.headers);
       incoming.pipe(res);
       incoming.on('error', () => res.destroy());
@@ -102,7 +137,7 @@ export function createFrontendServer(options: Options) {
           if (folder !== current) roots.push(folder);
         }
     }
-    let fallback: { file: string; size: number; etag: string } | undefined;
+    let fallback: { file: string; size: number; etag: string; csp?: string } | undefined;
     for (const root of roots) {
       const file = join(root, path);
       let info;
@@ -114,7 +149,14 @@ export function createFrontendServer(options: Options) {
       if (!info.isFile()) continue;
       const content = await readFile(file);
       const checksum = digest(content);
-      const result = { file, size: info.size, etag: checksum };
+      const result = {
+        file,
+        size: info.size,
+        etag: checksum,
+        ...(path === 'index.html' || path === 'python-sandbox.html'
+          ? { csp: documentPolicy(content.toString(), path === 'python-sandbox.html') }
+          : {}),
+      };
       fallback ??= result;
       const manifest =
         path === 'manifest.webmanifest'
@@ -164,14 +206,15 @@ export function createFrontendServer(options: Options) {
     const document =
       path === '' ||
       path === 'index.html' ||
-      (!types[extname(path)] && String(req.headers.accept ?? '').includes('text/html'));
+      (!types[extname(path)] && !path.startsWith('assets/') && !path.startsWith('generated/'));
     if (document) path = 'index.html';
     const asset = await fileFor(path, document ? null : url.searchParams.get('v'));
     if (!asset) {
       error(res, 404, 'This resource is unavailable.');
       return;
     }
-    const immutable = /^assets\//.test(path) || !!url.searchParams.get('v');
+    const immutable =
+      path !== 'manifest.webmanifest' && (/^assets\//.test(path) || !!url.searchParams.get('v'));
     const headers: Record<string, string | number> = {
       'Content-Type': types[extname(path)] ?? 'application/octet-stream',
       'Content-Length': asset.size,
@@ -179,6 +222,7 @@ export function createFrontendServer(options: Options) {
       'Cache-Control': immutable ? 'public, max-age=31536000, immutable' : 'no-cache',
       ETag: `"${asset.etag}"`,
     };
+    if (asset.csp) headers['Content-Security-Policy'] = asset.csp;
     if (path === 'sw.js') {
       headers['Cache-Control'] = 'no-cache';
       headers['Service-Worker-Allowed'] = '/';

@@ -32,6 +32,19 @@ through to the original backend. Keep proxy buffering off, upload limits and lon
 response timeouts consistent with the existing deployment. Use a supervisor to
 restart the frontend process and retain its exact launch environment.
 
+## Document security and caching
+
+The proxy applies a Content Security Policy with hashes for Homeframe's generated
+inline scripts. The application document does not allow arbitrary inline scripts
+or JavaScript evaluation. Python executes in a separate opaque-origin sandbox;
+its evaluator permissions never apply to the main application. Preserve both the
+iframe sandbox and the sandbox document's response policy.
+
+Versioned JavaScript and CSS are immutable. HTML, the worker and both manifest
+URLs revalidate, including manifest URLs with revision queries. Unknown API routes
+return JSON errors instead of the upstream SPA; real HTML file downloads retain
+their original content and headers.
+
 ## Data and browser migration
 
 No Alembic migration is introduced. Make a consistent SQLite online backup before

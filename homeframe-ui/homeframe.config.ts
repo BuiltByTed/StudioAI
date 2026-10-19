@@ -43,6 +43,7 @@ export default defineHomeframe({
       '/static/',
       '/cache/',
       '/pyodide/',
+      '/python-sandbox.html',
     ],
     notifications: false,
   },
