@@ -1,3 +1,8 @@
+> **Stopped and reverted.** Ted rejected the correction and requested normal
+> Open WebUI. Public routing now targets the original backend interface directly.
+> Chats, files, model settings, schema and backend process were preserved.
+> Do not resume this Homeframe migration or redeploy it without a new request.
+
 # Original-interface correction
 
 The separate React redesign was rejected. Studio AI now builds the original Open

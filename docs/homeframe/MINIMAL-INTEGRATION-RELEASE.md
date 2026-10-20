@@ -1,3 +1,8 @@
+> **Withdrawn at the user's request.** Normal Open WebUI is restored directly from
+> the existing backend. No backend/database rollback was needed. A narrowly scoped
+> retirement worker unregisters the former Homeframe worker, clears its own caches
+> and reloads the original interface. Homeframe frontend services are disabled.
+
 # Studio AI — original interface restored
 
 This correction preserves Open WebUI's original Svelte interface, renames the

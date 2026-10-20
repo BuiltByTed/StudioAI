@@ -1,3 +1,8 @@
+> **Deployment reverted to normal Open WebUI at Ted's request.** The public site
+> uses the original backend-served interface directly. The Homeframe experiment
+> below is retained as source history and is not deployed. Its build was cancelled;
+> no automatic deployment is configured.
+
 # Studio AI
 
 Studio AI is Ted's independently maintained fork of
