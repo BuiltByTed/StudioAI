@@ -205,12 +205,12 @@
 		<Drawer
 			show={$showControls}
 			onClose={() => showControls.set(false)}
-			className="min-h-[100dvh] !bg-white dark:!bg-gray-850"
+			className="min-h-full !bg-white dark:!bg-gray-850"
 		>
-			<div class="h-[100dvh] flex flex-col">
+			<div class="h-full flex flex-col">
 				{#if $showCallOverlay}
 					<div
-						class="h-full max-h-[100dvh] bg-white text-gray-700 dark:bg-black dark:text-gray-300 flex justify-center"
+						class="h-full max-h-full bg-white text-gray-700 dark:bg-black dark:text-gray-300 flex justify-center"
 					>
 						<CallPanel
 							{bridge}

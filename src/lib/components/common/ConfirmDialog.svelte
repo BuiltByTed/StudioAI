@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import DOMPurify from 'dompurify';
 
 	import { onMount, getContext, createEventDispatcher, onDestroy, tick } from 'svelte';
@@ -92,7 +93,6 @@
 
 	$: if (mounted) {
 		if (show && modalElement) {
-			document.body.appendChild(modalElement);
 			focusTrap = FocusTrap.createFocusTrap(modalElement);
 			focusTrap.activate();
 
@@ -103,7 +103,7 @@
 			focusTrap.deactivate();
 
 			window.removeEventListener('keydown', handleKeyDown);
-			document.body.removeChild(modalElement);
+			modalElement.remove();
 
 			restoreOverflow();
 		}
@@ -117,7 +117,7 @@
 			focusTrap.deactivate();
 		}
 		if (modalElement) {
-			document.body.removeChild(modalElement);
+			modalElement.remove();
 		}
 	});
 </script>
@@ -127,7 +127,8 @@
 	<!-- svelte-ignore a11y-no-static-element-interactions -->
 	<div
 		bind:this={modalElement}
-		class="modal fixed top-0 right-0 left-0 bottom-0 bg-black/60 w-full h-screen max-h-[100dvh] flex justify-center z-99999999 overflow-hidden overscroll-contain"
+		use:frameRegion={'portal'}
+		class="modal absolute inset-0 bg-black/60 w-full h-full max-h-full flex justify-center z-99999999 overflow-hidden overscroll-contain"
 		in:fade={{ duration: 10 }}
 		on:mousedown={() => {
 			cancelHandler();
@@ -138,7 +139,7 @@
 			aria-modal="true"
 			aria-label={title !== '' ? title : $i18n.t('Confirm your action')}
 			tabindex="-1"
-			class="m-auto max-w-full w-[32rem] mx-2 bg-white dark:bg-gray-950 rounded-3xl max-h-[100dvh] shadow-3xl border border-white dark:border-gray-900"
+			class="m-auto max-w-full w-[32rem] mx-2 bg-white dark:bg-gray-950 rounded-3xl max-h-full shadow-3xl border border-white dark:border-gray-900"
 			in:flyAndScale
 			on:mousedown={(e) => {
 				e.stopPropagation();

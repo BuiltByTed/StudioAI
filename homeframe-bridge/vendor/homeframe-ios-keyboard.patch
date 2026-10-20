@@ -1,0 +1,229 @@
+diff --git a/packages/runtime/src/styles.css b/packages/runtime/src/styles.css
+index 3a265ca..2795845 100644
+--- a/packages/runtime/src/styles.css
++++ b/packages/runtime/src/styles.css
+@@ -99,7 +99,8 @@
+     overflow: hidden;
+     background: var(--hf-app-background);
+     /*
+-     * Installed iOS can pan the layout viewport without changing offsetTop.
++     * iOS browser tabs and installed apps can pan the layout viewport while
++     * the keyboard is open, including during a user-owned scroll gesture.
+      * Runtime counters that hidden pageTop pan here; shell dimensions remain
+      * immutable while only the final grid row follows keyboard geometry.
+      */
+diff --git a/packages/runtime/src/viewport.ts b/packages/runtime/src/viewport.ts
+index 3cf0f88..49ff5b5 100644
+--- a/packages/runtime/src/viewport.ts
++++ b/packages/runtime/src/viewport.ts
+@@ -67,7 +67,7 @@ interface EditableScrollDrag {
+   startY: number;
+   startScrollTop: number;
+   scroller: HTMLElement | null;
+-  editable: HTMLElement;
++  editable: HTMLElement | null;
+   dragging: boolean;
+ }
+ 
+@@ -283,6 +283,25 @@ export class ViewportController {
+     // route fields and dock fields alike and preserves the tap-versus-scroll
+     // distinction while suppressing WebKit's automatic focus pan.
+     document.addEventListener('touchstart', (event) => {
++      // A vertical swipe can begin on dock chrome (including a floating
++      // scroll-to-bottom button). There is no native scroll owner there, so
++      // iOS otherwise pans the document beneath its keyboard. Preserve taps,
++      // but transfer a real vertical drag to the route's existing scroller.
++      const target = event.target instanceof Element ? event.target : null;
++      const dock = target?.closest<HTMLElement>(DOCK_KEYBOARD_TARGET_SELECTOR);
++      if (this.snapshot.keyboard.phase !== 'closed'
++        && event.touches.length === 1 && target && dock
++        && !target.closest(`${editableSelector}, input, select, [role="slider"]`)) {
++        const touch = event.touches[0];
++        const scroller = this.primaryScroller(dock);
++        if (touch && scroller) {
++          this.editableScrollDrag = {
++            identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY,
++            startScrollTop: scroller.scrollTop, scroller, editable: null, dragging: false,
++          };
++          return;
++        }
++      }
+       if (!needsKeyboardFocusGuard(event.target)
+         || document.activeElement === event.target
+         || event.touches.length !== 1) return;
+@@ -332,7 +351,7 @@ export class ViewportController {
+       const drag = this.editableScrollDrag;
+       this.editableScrollDrag = null;
+       if (!drag || drag.dragging || event.type === 'touchcancel'
+-        || !drag.editable.isConnected) return;
++        || !drag.editable?.isConnected) return;
+       this.captureKeyboardAnchor(drag.editable);
+       this.beginKeyboardSettlement();
+       this.focusEditable(drag.editable);
+@@ -574,9 +593,18 @@ export class ViewportController {
+   }
+ 
+   private readPageTop(layoutHeight?: number): number {
+-    if (!this.isIosStandalone()) return 0;
++    const ios = this.isIosStandalone()
++      || /iPad|iPhone|iPod/.test(navigator.userAgent)
++      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
++    if (!ios || (window.visualViewport?.scale ?? 1) > 1.01) return 0;
+     const maximum = Math.max(1, layoutHeight ?? this.snapshot.stableHeight ?? window.innerHeight);
+-    return bounded(window.visualViewport?.pageTop ?? 0, 0, maximum);
++    const visual = window.visualViewport;
++    // Once WebKit reports offsetTop, fixed-position surfaces move by that
++    // amount. pageTop can additionally include browser-chrome/document scroll;
++    // compensating both lifts the shell a second time. Some iOS focus pans only
++    // publish pageTop, so retain that fallback when offsetTop stays at zero.
++    const pan = (visual?.offsetTop ?? 0) > 0 ? visual!.offsetTop : visual?.pageTop ?? 0;
++    return bounded(pan, 0, maximum);
+   }
+ 
+   private primaryScroller(element: HTMLElement): HTMLElement | null {
+@@ -767,8 +795,14 @@ export class ViewportController {
+ 
+     const virtualKeyboardHeight = Math.min(this.readVirtualKeyboardHeight(), stableHeight);
+     const closedVisualBottom = Math.max(1, stableHeight - this.installedFrameInset);
+-    const visualKeyboardHeight = Math.max(0, stableHeight - (height + y));
+-    const visualKeyboardReduction = Math.max(0, closedVisualBottom - (height + y));
++    // The shell counters iOS pageTop panning at its origin. The matching part
++    // of offsetTop therefore cannot also count as extra visible height below
++    // the shell: doing so makes a stationary keyboard appear to shrink during
++    // a user-owned scroll and sends the dock underneath it. Non-iOS viewports
++    // retain their normal offset because readPageTop() returns zero there.
++    const keyboardVisualBottom = height + Math.max(0, y - pageTop);
++    const visualKeyboardHeight = Math.max(0, stableHeight - keyboardVisualBottom);
++    const visualKeyboardReduction = Math.max(0, closedVisualBottom - keyboardVisualBottom);
+     const threshold = Math.min(
+       this.options.keyboardThresholdPx,
+       stableHeight * this.options.keyboardThresholdRatio,
+@@ -810,7 +844,7 @@ export class ViewportController {
+       keyboardPhase = previousOpen || this.snapshot.keyboard.phase === 'closing'
+         ? 'closing'
+         : 'closed';
+-      if (keyboardPhase === 'closing' && closeEnough(height + y, closedVisualBottom)) {
++      if (keyboardPhase === 'closing' && closeEnough(keyboardVisualBottom, closedVisualBottom)) {
+         keyboardPhase = 'closed';
+       }
+     }
+@@ -905,7 +939,7 @@ export class ViewportController {
+     style.setProperty('--hf-viewport-y', px(snapshot.y));
+     style.setProperty(
+       '--hf-layout-viewport-top',
+-      px(this.isIosStandalone() && snapshot.keyboard.phase !== 'closed' ? snapshot.pageTop : 0),
++      px(snapshot.keyboard.phase !== 'closed' ? snapshot.pageTop : 0),
+     );
+     const visualRight = snapshot.x + snapshot.width;
+     const visualBottom = snapshot.y + snapshot.height;
+diff --git a/tests/unit/viewport.test.ts b/tests/unit/viewport.test.ts
+index 84b9758..2a1d9d5 100644
+--- a/tests/unit/viewport.test.ts
++++ b/tests/unit/viewport.test.ts
+@@ -179,6 +179,106 @@ describe('ViewportController', () => {
+     controller.stop();
+   });
+ 
++  it('counters iOS browser keyboard pan without reclaiming the route scroll position', async () => {
++    const viewport = installViewport();
++    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15');
++    const controller = new ViewportController({ settleDelaysMs: [1, 2], keyboardStabilizationMs: 5 });
++    const shell = document.createElement('div'); shell.dataset.hfShell = '';
++    const scroller = document.createElement('div'); scroller.dataset.hfScrollView = '';
++    const dock = document.createElement('div'); dock.dataset.hfDock = '';
++    const input = document.createElement('textarea'); input.style.fontSize = '16px';
++    dock.append(input); shell.append(scroller, dock); document.body.append(shell);
++    controller.start(); input.focus(); viewport.height = 500;
++    viewport.dispatchEvent(new Event('resize'));
++    await new Promise((resolve) => setTimeout(resolve, 15));
++    scroller.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
++    scroller.scrollTop = 320;
++    viewport.pageTop = 80;
++    viewport.dispatchEvent(new Event('scroll'));
++    await new Promise((resolve) => requestAnimationFrame(resolve));
++    expect(document.documentElement.style.getPropertyValue('--hf-layout-viewport-top')).toBe('80px');
++    expect(scroller.scrollTop).toBe(320);
++    expect(document.documentElement.dataset.hfIosStandalone).toBe('false');
++    input.blur(); viewport.height = 844; viewport.pageTop = 0;
++    viewport.dispatchEvent(new Event('resize'));
++    await new Promise((resolve) => setTimeout(resolve, 15));
++    expect(document.documentElement.style.getPropertyValue('--hf-layout-viewport-top')).toBe('0px');
++    controller.stop();
++  });
++
++  it.each(['span', 'svg'])('routes a drag on dock chrome (%s) to the thread without panning the page or swallowing taps', async (tag) => {
++    const viewport = installViewport();
++    const controller = new ViewportController({ settleDelaysMs: [1, 2], keyboardStabilizationMs: 5 });
++    const shell = document.createElement('div'); shell.dataset.hfShell = '';
++    const scroller = document.createElement('div'); scroller.dataset.hfScrollView = '';
++    const dock = document.createElement('div'); dock.dataset.hfDock = '';
++    const input = document.createElement('textarea'); input.style.fontSize = '16px';
++    const button = document.createElement('button'); const icon = tag === 'svg' ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') : document.createElement('span'); button.append(icon);
++    dock.append(input, button); shell.append(scroller, dock); document.body.append(shell);
++    const touch = (type: string, y: number) => {
++      const event = new Event(type, { bubbles: true, cancelable: true });
++      Object.defineProperty(event, 'touches', { value: type === 'touchend' ? [] : [{ identifier: 1, clientX: 100, clientY: y }] });
++      icon.dispatchEvent(event); return event;
++    };
++    controller.start();
++    try {
++      input.focus(); viewport.height = 500; viewport.dispatchEvent(new Event('resize'));
++      await new Promise((resolve) => setTimeout(resolve, 15));
++      scroller.scrollTop = 200;
++      expect(touch('touchstart', 300).defaultPrevented).toBe(false);
++      expect(touch('touchmove', 200).defaultPrevented).toBe(true);
++      expect(scroller.scrollTop).toBe(300);
++      touch('touchend', 200);
++      expect(document.activeElement).toBe(input);
++      // A stationary control tap keeps its native click behavior.
++      expect(touch('touchstart', 300).defaultPrevented).toBe(false);
++      expect(touch('touchend', 300).defaultPrevented).toBe(false);
++      expect(scroller.scrollTop).toBe(300);
++    } finally { controller.stop(); }
++  });
++
++  it('keeps keyboard avoidance constant while iOS pans offsetTop during a user drag', async () => {
++    const viewport = installViewport();
++    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15');
++    const controller = new ViewportController({ settleDelaysMs: [1, 2], keyboardStabilizationMs: 5 });
++    const shell = document.createElement('div'); shell.dataset.hfShell = '';
++    const scroller = document.createElement('div'); scroller.dataset.hfScrollView = '';
++    const dock = document.createElement('div'); dock.dataset.hfDock = '';
++    const input = document.createElement('textarea'); input.style.fontSize = '16px';
++    dock.append(input); shell.append(scroller, dock); document.body.append(shell);
++    controller.start();
++    try {
++      input.focus(); viewport.height = 500;
++      viewport.dispatchEvent(new Event('resize'));
++      await new Promise((resolve) => setTimeout(resolve, 15));
++      scroller.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
++      // The keyboard did not move: only the visual viewport's origin changed.
++      // Include enough pan to defeat the old keyboard-open threshold entirely.
++      for (const top of [80, 184, 344, 120, 0]) {
++        scroller.scrollTop += 27;
++        const position = scroller.scrollTop;
++        viewport.offsetTop = top; viewport.pageTop = top;
++        viewport.dispatchEvent(new Event('scroll'));
++        await new Promise((resolve) => requestAnimationFrame(resolve));
++        expect(controller.getSnapshot().keyboard.height).toBe(344);
++        expect(document.documentElement.style.getPropertyValue('--hf-dock-keyboard-offset')).toBe('344px');
++        expect(document.documentElement.style.getPropertyValue('--hf-layout-viewport-top')).toBe(`${top}px`);
++        expect(scroller.scrollTop).toBe(position);
++      }
++      viewport.offsetTop = 330; viewport.pageTop = 368;
++      viewport.dispatchEvent(new Event('scroll'));
++      await new Promise((resolve) => requestAnimationFrame(resolve));
++      expect(document.documentElement.style.getPropertyValue('--hf-layout-viewport-top')).toBe('330px');
++      expect(controller.getSnapshot().keyboard.height).toBe(344);
++      viewport.offsetTop = 0; viewport.pageTop = 0;
++      input.blur(); viewport.height = 844;
++      viewport.dispatchEvent(new Event('resize'));
++      await new Promise((resolve) => setTimeout(resolve, 15));
++      expect(controller.getSnapshot().keyboard).toMatchObject({ phase: 'closed', height: 0 });
++      expect(document.documentElement.style.getPropertyValue('--hf-dock-keyboard-offset')).toBe('0px');
++    } finally { controller.stop(); }
++  });
++
+   it('counteracts standalone iOS page pan without including native UI outside the WebView', async () => {
+     const viewport = installViewport();
+     Object.defineProperty(navigator, 'standalone', { value: true, configurable: true });

@@ -13,10 +13,20 @@ interface Options {
   current: string;
   releases?: string;
   upstream: string;
+  // Preserve the upstream UI policy; its sandboxed previews and Python worker
+  // require capabilities absent from the separate React interface.
+  originalUI?: boolean;
 }
 const types: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.wasm': 'application/wasm',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
@@ -30,6 +40,8 @@ const types: Record<string, string> = {
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
   '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
+  '.xml': 'application/xml',
   '.map': 'application/json',
 };
 const passthrough = [
@@ -41,7 +53,6 @@ const passthrough = [
   '/static',
   '/cache',
   '/pyodide',
-  '/_app',
   '/health',
   '/.well-known',
 ];
@@ -153,7 +164,7 @@ export function createFrontendServer(options: Options) {
         file,
         size: info.size,
         etag: checksum,
-        ...(path === 'index.html' || path === 'python-sandbox.html'
+        ...(!options.originalUI && (path === 'index.html' || path === 'python-sandbox.html')
           ? { csp: documentPolicy(content.toString(), path === 'python-sandbox.html') }
           : {}),
       };
@@ -206,15 +217,21 @@ export function createFrontendServer(options: Options) {
     const document =
       path === '' ||
       path === 'index.html' ||
-      (!types[extname(path)] && !path.startsWith('assets/') && !path.startsWith('generated/'));
+      (!types[extname(path)] && !/^(assets|generated|_app)\//.test(path)
+        && (!extname(path) || req.headers.accept?.includes('text/html')));
     if (document) path = 'index.html';
     const asset = await fileFor(path, document ? null : url.searchParams.get('v'));
+    if (!asset && decoded.startsWith('/_app/')) {
+      // Already-open upstream tabs may still request the previous build's chunks.
+      proxy(req, res);
+      return;
+    }
     if (!asset) {
       error(res, 404, 'This resource is unavailable.');
       return;
     }
     const immutable =
-      path !== 'manifest.webmanifest' && (/^assets\//.test(path) || !!url.searchParams.get('v'));
+      path !== 'manifest.webmanifest' && (/^(assets|_app\/immutable)\//.test(path) || !!url.searchParams.get('v'));
     const headers: Record<string, string | number> = {
       'Content-Type': types[extname(path)] ?? 'application/octet-stream',
       'Content-Length': asset.size,
@@ -286,6 +303,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const server = createFrontendServer({
     current,
     upstream,
+    originalUI: process.env.STUDIO_ORIGINAL_UI === '1',
     ...(process.env.STUDIO_FRONTEND_RELEASES
       ? { releases: process.env.STUDIO_FRONTEND_RELEASES }
       : {}),

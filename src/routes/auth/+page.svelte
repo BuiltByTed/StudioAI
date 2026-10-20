@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import DOMPurify from 'dompurify';
 	import MfaChallengeForm from '$lib/components/auth/MfaChallenge.svelte';
 	import { mfaRequest, type MfaChallenge } from '$lib/apis/auths/mfa';
@@ -249,17 +250,18 @@
 	}}
 />
 
-<div class="w-full h-screen max-h-[100dvh] text-white relative" id="auth-page">
+<div class="w-full h-full min-h-0 text-white relative" id="auth-page">
 	<div class="w-full h-full absolute top-0 left-0 bg-white dark:bg-black"></div>
 
 	<div class="w-full absolute top-0 left-0 right-0 h-8 drag-region" />
 
 	{#if loaded}
 		<div
-			class="fixed bg-transparent min-h-screen w-full flex justify-center z-50 text-black dark:text-white"
+			class="relative bg-transparent h-full overflow-auto w-full flex justify-center z-50 text-black dark:text-white"
 			id="auth-container"
+			use:frameRegion={'scroll'}
 		>
-			<div class="w-full px-6 min-h-screen flex flex-col text-center">
+			<div class="w-full px-6 min-h-full flex flex-col text-center">
 				{#if mfaChallenge}
 					<div class="my-auto mx-auto w-full sm:max-w-md shrink-0">
 						<MfaChallengeForm

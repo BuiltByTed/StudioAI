@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import { formatSchedule } from '$lib/utils/schedule';
 	import { onMount, getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
@@ -229,7 +230,7 @@
 
 <AutomationModal bind:show={showEditModal} {automation} on:save={editSavedHandler} />
 
-<div class="h-full overflow-y-auto scrollbar-hidden">
+<div class="h-full overflow-y-auto scrollbar-hidden" use:frameRegion={'scroll'}>
 	<div class="pb-1 px-1">
 		<div class="flex h-7 items-center px-3">
 			<span class="w-24 shrink-0 text-[0.6875rem] text-gray-400 dark:text-gray-500">

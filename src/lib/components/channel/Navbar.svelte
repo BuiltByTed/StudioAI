@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -56,7 +57,7 @@
 	<PinnedMessagesModal bind:show={showChannelPinnedMessagesModal} {channel} {onPin} />
 	<ChannelInfoModal bind:show={showChannelInfoModal} {channel} {onUpdate} />
 {/if}
-<nav class="sticky top-0 z-30 w-full px-3 py-1 -mb-8 flex items-center drag-region flex-col">
+<nav class="relative z-30 w-full px-3 py-1 -mb-8 flex items-center drag-region flex-col">
 	<div
 		id="navbar-bg-gradient-to-b"
 		class=" bg-linear-to-b via-50% from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900 dark:to-transparent pointer-events-none absolute inset-0 -bottom-7 z-[-1]"

@@ -168,3 +168,34 @@ test('fails closed for missing releases and rejects asset traversal', async (t) 
     assert.notEqual((await fetch(`http://127.0.0.1:${port}${path}`)).status, 200);
   assert.equal((await fetch(`http://127.0.0.1:${port}/api/models`)).status, 502);
 });
+
+test('serves the original Svelte UI chunks and retains upstream fallback for old tabs', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-original-test-'));
+  await mkdir(join(root, '_app', 'immutable'), { recursive: true });
+  await writeFile(join(root, 'index.html'), '<title>Studio AI</title>');
+  await writeFile(join(root, '_app', 'immutable', 'current.js'), 'current Svelte chunk');
+  await writeFile(join(root, '_app', 'immutable', 'pdf.worker.mjs'), 'export {};');
+  await writeFile(join(root, 'fixture.wasm'), Buffer.from([0,97,115,109,1,0,0,0]));
+  await writeFile(join(root, 'unknown.asset'), 'exact asset bytes');
+  const backend = http.createServer((req, res) => {
+    res.setHeader('Content-Type', 'text/javascript');
+    res.end(req.url === '/_app/immutable/old.js' ? 'old upstream chunk' : 'unexpected fallback');
+  });
+  const port = await listen(backend);
+  const frontend = createFrontendServer({ current: root, upstream: `http://127.0.0.1:${port}`, originalUI: true });
+  const base = `http://127.0.0.1:${await listen(frontend)}`;
+  t.after(async () => { await close(frontend); await close(backend); await rm(root, { recursive: true, force: true }); });
+  const current = await fetch(base + '/_app/immutable/current.js');
+  assert.equal(await current.text(), 'current Svelte chunk');
+  assert.match((await fetch(base + '/_app/immutable/pdf.worker.mjs')).headers.get('Content-Type') ?? '', /^text\/javascript/);
+  assert.equal((await fetch(base + '/fixture.wasm')).headers.get('Content-Type'), 'application/wasm');
+  assert.equal(await (await fetch(base + '/unknown.asset')).text(), 'exact asset bytes');
+  assert.equal(await (await fetch(base + '/workspace/models/example.v2', { headers: { Accept: 'text/html' } })).text(), '<title>Studio AI</title>');
+  assert.match(current.headers.get('Cache-Control') ?? '', /immutable/);
+  assert.equal(await (await fetch(base + '/_app/immutable/old.js')).text(), 'old upstream chunk');
+  const document = await fetch(base + '/notes/example');
+  assert.equal(await document.text(), '<title>Studio AI</title>');
+  // Preserve the original UI's sandboxed previews and Python worker policy.
+  // The separate React UI's stricter policy remains the default above.
+  assert.equal(document.headers.get('Content-Security-Policy'), null);
+});

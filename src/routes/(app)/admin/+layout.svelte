@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { onMount, getContext } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -36,14 +37,15 @@
 
 {#if loaded}
 	<div
-		class=" flex flex-col h-screen max-h-[100dvh] flex-1 min-w-0 transition-width duration-200 ease-in-out {$showSidebar
-			? 'md:max-w-[calc(100%-var(--sidebar-width))]'
-			: 'md:max-w-[calc(100%-42px)]'}  w-full max-w-full"
+		class=" flex flex-col h-full min-h-0 flex-1 min-w-0 transition-width duration-200 ease-in-out w-full max-w-full"
 	>
-		<nav class="pb-1 px-2.5 pt-2 backdrop-blur-xl drag-region select-none">
+		<nav
+			use:frameRegion={'header'}
+			class="pb-1 px-2.5 pt-2 backdrop-blur-xl drag-region select-none"
+		>
 			<div class=" flex items-center gap-0.5 md:gap-1">
-				{#if $mobile}
-					<div class="{$showSidebar ? 'md:hidden' : ''} self-center flex flex-none items-center">
+				{#if !$mobile || !$showSidebar}
+					<div class="self-center flex flex-none items-center">
 						<Tooltip
 							content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 							interactive={true}
@@ -110,7 +112,10 @@
 			</div>
 		</nav>
 
-		<div class="  pb-1 flex-1 min-w-0 max-h-full overflow-y-auto overflow-x-hidden">
+		<div
+			class="  pb-1 flex-1 min-w-0 max-h-full overflow-y-auto overflow-x-hidden"
+			use:frameRegion={'scroll'}
+		>
 			<slot />
 		</div>
 	</div>

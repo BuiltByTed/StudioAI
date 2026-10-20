@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { getContext } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -81,9 +82,10 @@
 />
 
 <nav
-	class="sticky top-0 z-30 w-full {$mobile
+	use:frameRegion={'header'}
+	class="relative z-30 w-full {$mobile
 		? 'pt-1.5'
-		: 'pt-0.5'} pb-1 -mb-12 flex flex-col items-center drag-region"
+		: 'pt-0.5'} pb-1 flex flex-col items-center drag-region"
 >
 	<div class="flex items-center w-full {$mobile ? 'px-2.5' : 'pl-1.5 pr-1'}">
 		<div
@@ -95,7 +97,7 @@
 
 		<div class=" flex max-w-full w-full mx-auto bg-transparent">
 			<div class="flex items-center w-full max-w-full">
-				{#if $mobile && !$showSidebar}
+				{#if !$mobile || !$showSidebar}
 					<div class="mr-1 flex flex-none items-center self-center">
 						<Tooltip content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}>
 							<button

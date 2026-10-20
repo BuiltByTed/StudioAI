@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -77,7 +78,6 @@
 	};
 
 	$: if (show && modalElement) {
-		document.body.appendChild(modalElement);
 		focusTrap = FocusTrap.createFocusTrap(modalElement, {
 			escapeDeactivates: false,
 			allowOutsideClick: (e) => {
@@ -132,11 +132,12 @@
 	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 	<div
 		bind:this={modalElement}
+		use:frameRegion={'portal'}
 		aria-modal="true"
 		aria-label={ariaLabel}
 		role="dialog"
 		tabindex="-1"
-		class="modal fixed top-0 right-0 left-0 bottom-0 bg-black/45 dark:bg-black/60 w-full h-screen max-h-[100dvh] {containerClassName}  flex justify-center z-9999 overflow-y-auto overscroll-contain"
+		class="modal absolute inset-0 bg-black/45 dark:bg-black/60 w-full h-full max-h-full {containerClassName}  flex justify-center z-9999 overflow-y-auto overscroll-contain"
 		style="scrollbar-gutter: stable;"
 		in:fade={{ duration: 10 }}
 		on:mousedown={requestClose}

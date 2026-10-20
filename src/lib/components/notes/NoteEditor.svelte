@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import { getContext, onDestroy, onMount, tick } from 'svelte';
 	import { v4 as uuidv4 } from 'uuid';
 	import fileSaver from 'file-saver';
@@ -1035,9 +1036,12 @@ ${content}
 				</div>
 			{:else}
 				<div class=" w-full flex flex-col {loading ? 'opacity-20' : ''}">
-					<div class="shrink-0 w-full flex justify-between items-center px-3">
+					<div
+						class="shrink-0 w-full flex justify-between items-center px-3 pt-2"
+						use:frameRegion={'header'}
+					>
 						<div class="w-full min-w-0 flex items-center">
-							{#if $mobile}
+							{#if !$mobile || !$showSidebar}
 								<Tooltip
 									content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 								>
@@ -1340,7 +1344,8 @@ ${content}
 					</div>
 
 					<div
-						class=" flex-1 w-full h-full overflow-auto px-3 relative flex flex-col"
+						class="flex-1 min-h-0 w-full h-full overflow-auto px-3 relative flex flex-col"
+						use:frameRegion={'scroll'}
 						id="note-content-container"
 					>
 						{#if noteAttachmentFiles.length > 0}

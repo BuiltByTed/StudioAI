@@ -111,11 +111,7 @@
 </script>
 
 <svelte:head><title>{$i18n.t('Encrypted chat')} · Open WebUI</title></svelte:head>
-<div
-	class="h-screen max-h-[100dvh] w-full min-w-0 flex flex-col {$showSidebar
-		? 'md:max-w-[calc(100%-var(--sidebar-width))]'
-		: ''}"
->
+<div class="h-full min-h-0 w-full min-w-0 flex flex-col">
 	<Navbar channel={channelInfo} readOnly>
 		<span slot="status" class="ml-2 shrink-0 text-[0.6875rem] text-gray-500 dark:text-gray-400"
 			>{$i18n.t('Encrypted')}</span

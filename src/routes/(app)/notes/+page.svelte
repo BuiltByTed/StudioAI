@@ -1,4 +1,5 @@
 <script>
+	import { frameRegion } from '$lib/homeframe';
 	import { getContext, onMount } from 'svelte';
 
 	import dayjs from '$lib/dayjs';
@@ -46,11 +47,9 @@
 </ConfirmDialog>
 
 <div
-	class="flex flex-col w-full h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
-		? 'md:max-w-[calc(100%-var(--sidebar-width))]'
-		: ''} max-w-full"
+	class="flex flex-col w-full h-full min-h-0 transition-width duration-200 ease-in-out max-w-full"
 >
-	<div class="flex-1 max-h-full overflow-y-auto">
+	<div class="flex-1 min-h-0 max-h-full overflow-y-auto" use:frameRegion={'scroll'}>
 		{#if loaded}
 			<div class="pb-1 px-2.5 pt-2">
 				<Notes />

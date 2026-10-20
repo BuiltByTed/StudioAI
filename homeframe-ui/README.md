@@ -1,3 +1,6 @@
+> Historical React redesign: superseded by the original-interface correction in
+> `homeframe-bridge/`. Its verification results do not establish coverage of the corrected UI.
+
 # Studio AI · Homeframe frontend
 
 React interface for the Open WebUI 0.12.3 backend. The upstream backend, original

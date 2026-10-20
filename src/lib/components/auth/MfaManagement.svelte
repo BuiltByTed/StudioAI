@@ -53,7 +53,7 @@
 	});
 </script>
 
-<main id="main-content" class="flex min-h-screen items-center justify-center px-5 py-10">
+<main id="main-content" class="flex min-h-full items-center justify-center px-5 py-10">
 	<div class="w-full max-w-sm">
 		{#if 'challenge' in flow}
 			<MfaChallengeForm challenge={flow.challenge} onComplete={signIn} onCancel={cancel} />

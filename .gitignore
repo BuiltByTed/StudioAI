@@ -317,3 +317,5 @@ cypress/screenshots
 
 # Reviewed, pinned Homeframe compatibility distribution used by npm ci
 !/homeframe-ui/vendor/builtbyted-homeframe-0.1.18-studio.1.tgz
+
+!/homeframe-bridge/vendor/builtbyted-homeframe-0.1.18-studio.5.tgz

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import { getContext, onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
@@ -67,15 +68,13 @@
 </script>
 
 <div
-	class="flex flex-col w-full h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
-		? 'md:max-w-[calc(100%-var(--sidebar-width))]'
-		: ''} max-w-full"
+	class="flex flex-col w-full h-full min-h-0 transition-width duration-200 ease-in-out max-w-full"
 >
 	<div class="flex h-full min-h-0 flex-col">
-		<div class="shrink-0 px-2.5 pt-2 pb-1">
+		<div class="shrink-0 px-2.5 pt-2 pb-1" use:frameRegion={'header'}>
 			<div class="flex items-center gap-0.5 md:gap-1">
-				{#if $mobile}
-					<div class="{$showSidebar ? 'md:hidden' : ''} flex flex-none items-center">
+				{#if !$mobile || !$showSidebar}
+					<div class="flex flex-none items-center">
 						<Tooltip content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}>
 							<button
 								id="sidebar-toggle-button"

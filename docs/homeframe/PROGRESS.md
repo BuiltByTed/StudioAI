@@ -1,3 +1,6 @@
+> Historical React redesign: superseded by the original-interface correction in
+> `homeframe-bridge/`. Its verification results do not establish coverage of the corrected UI.
+
 # Homeframe migration
 
 ## Contract

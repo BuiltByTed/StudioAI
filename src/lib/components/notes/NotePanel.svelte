@@ -33,7 +33,7 @@
 				show = false;
 			}}
 		>
-			<div class="h-screen max-h-dvh flex flex-col">
+			<div class="h-full max-h-full flex flex-col">
 				<slot />
 			</div>
 		</Drawer>

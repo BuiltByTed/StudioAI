@@ -1,0 +1,18 @@
+/* Geometry only. Open WebUI continues to own typography, colors and controls. */
+.studio-frame-slot { min-width: 0; min-height: 0; }
+.studio-frame-content, .studio-frame-sidebar { height: 100%; }
+.studio-frame-content > *, .studio-frame-sidebar > * { height: 100%; min-height: 0; }
+[data-hf-shell] { --hf-sidebar-width: var(--sidebar-width, 260px); --hf-sidebar-rail-width: calc(42px * var(--app-text-scale, 1)); }
+[data-hf-sidebar] { border-right: 0; }
+[data-hf-sidebar-content] { overflow: hidden; }
+[data-hf-scroll-view] { scrollbar-gutter: auto; }
+:root { --hf-header-background: #fff; --hf-dock-background: #fff; --hf-sidebar-background: #fafafa; }
+:root.dark { --hf-app-background: var(--color-gray-900, #171717); --hf-header-background: var(--color-gray-900, #171717); --hf-dock-background: var(--color-gray-900, #171717); --hf-sidebar-background: var(--color-gray-950, #0a0a0a); }
+/* Original form controls use a range of compact sizes. Only editable text needs
+   the framework minimum, preventing focus zoom while keeping labels unchanged. */
+input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]),
+textarea, select, [contenteditable]:not([contenteditable=false]) {
+  font-size: max(1em, var(--hf-input-min-font-size, 16px));
+}
+.studio-frame-portal { height: 100%; pointer-events: none; }
+.studio-frame-portal > * { pointer-events: auto; }

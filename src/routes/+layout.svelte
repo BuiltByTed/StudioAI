@@ -1,12 +1,8 @@
 <script>
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { io } from 'socket.io-client';
-	import { spring } from 'svelte/motion';
 	import { createPyodideWorker } from '$lib/pyodide/createPyodideWorker';
 	import { Toaster, toast } from 'svelte-sonner';
-
-	let loadingProgress = spring(0, {
-		stiffness: 0.05
-	});
 
 	import { onMount, tick, setContext, onDestroy } from 'svelte';
 	import {
@@ -19,6 +15,7 @@
 		WEBUI_VERSION,
 		WEBUI_DEPLOYMENT_ID,
 		mobile,
+		showSidebar,
 		socket,
 		socketConnected,
 		chatId,
@@ -44,8 +41,6 @@
 	import { getFileContentById } from '$lib/apis/files';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { beforeNavigate } from '$app/navigation';
-	import { updated } from '$app/state';
 
 	import i18n, { initI18n, getLanguages, changeLanguage } from '$lib/i18n';
 
@@ -85,28 +80,6 @@
 	import { getChannelById, getChannels } from '$lib/apis/channels';
 	import { shouldNotifyChannelMessage } from '$lib/utils/channelNotifications';
 	import { resolveTerminalConnection, terminalRequest } from '$lib/apis/terminal';
-
-	const unregisterServiceWorkers = async () => {
-		if ('serviceWorker' in navigator) {
-			try {
-				const registrations = await navigator.serviceWorker.getRegistrations();
-				await Promise.all(registrations.map((r) => r.unregister()));
-				return true;
-			} catch (error) {
-				console.error('Error unregistering service workers:', error);
-				return false;
-			}
-		}
-		return false;
-	};
-
-	// handle frontend updates (https://svelte.dev/docs/kit/configuration#version)
-	beforeNavigate(async ({ willUnload, to }) => {
-		if (updated.current && !mfaManagement && !willUnload && to?.url) {
-			await unregisterServiceWorkers();
-			location.href = to.url.href;
-		}
-	});
 
 	setContext('i18n', i18n);
 	/** @type {import('$lib/components/auth/MfaManagement.svelte').MfaManagementFlow | null} */
@@ -222,7 +195,6 @@
 					(($WEBUI_VERSION !== null && version !== $WEBUI_VERSION) ||
 						($WEBUI_DEPLOYMENT_ID !== null && deploymentId !== $WEBUI_DEPLOYMENT_ID))
 				) {
-					await unregisterServiceWorkers();
 					location.href = location.href;
 					return;
 				}
@@ -1350,7 +1322,7 @@
 			// visual, textual, symbolic identifiers, metadata, and surrounding UI.
 			// Do not alter, remove, obscure, or replace it except as LICENSE permits:
 			// https://docs.openwebui.com/license.
-			await WEBUI_NAME.set(backendConfig.name);
+			await WEBUI_NAME.set('Studio AI');
 
 			if ($config) {
 				await setupSocket($config.features?.enable_websocket ?? true);
@@ -1398,35 +1370,8 @@
 
 		await tick();
 
-		if (
-			document.documentElement.classList.contains('her') &&
-			document.getElementById('progress-bar')
-		) {
-			loadingProgress.subscribe((value) => {
-				const progressBar = document.getElementById('progress-bar');
-
-				if (progressBar) {
-					progressBar.style.width = `${value}%`;
-				}
-			});
-
-			await loadingProgress.set(100);
-
-			document.getElementById('splash-screen')?.remove();
-
-			const audio = new Audio(`/audio/greeting.mp3`);
-			const playAudio = () => {
-				audio.play();
-				document.removeEventListener('click', playAudio);
-			};
-
-			document.addEventListener('click', playAudio);
-
-			loaded = true;
-		} else {
-			document.getElementById('splash-screen')?.remove();
-			loaded = true;
-		}
+		// Homeframe owns startup readiness and splash presentation.
+		loaded = true;
 
 		// Auto-show SyncStatsModal when opened with ?sync=true (from community)
 		if (
@@ -1461,6 +1406,34 @@
 	onDestroy(() => {
 		bc.close();
 	});
+	$: frameState({
+		ready: loaded,
+		sidebar: !!$user && !mfaManagement && !$page.url.pathname.startsWith('/auth'),
+		sidebarOpen: $showSidebar,
+		mobile: $mobile,
+		route: $page.url.pathname + $page.url.search
+	});
+	onMount(() => {
+		const toggleSidebar = (event) => showSidebar.set(event.detail);
+		const updateReady = ({ detail }) =>
+			toast.info(
+				detail.deferred
+					? 'Update waiting for your draft and running responses.'
+					: 'A Studio AI update is ready.',
+				{
+					id: 'studio-update',
+					duration: Infinity,
+					action: { label: 'Update', onClick: detail.activate },
+					cancel: { label: 'Later', onClick: detail.defer }
+				}
+			);
+		window.addEventListener('studio-frame-sidebar', toggleSidebar);
+		window.addEventListener('studio-frame-update', updateReady);
+		return () => {
+			window.removeEventListener('studio-frame-sidebar', toggleSidebar);
+			window.removeEventListener('studio-frame-update', updateReady);
+		};
+	});
 </script>
 
 <svelte:head>
@@ -1469,9 +1442,7 @@
 	Do not alter, remove, obscure, or replace it except as LICENSE permits:
 	https://docs.openwebui.com/license. -->
 	<title>{$WEBUI_NAME}</title>
-	<link crossorigin="anonymous" rel="icon" href="{WEBUI_BASE_URL}/static/favicon.png" />
 
-	<meta name="apple-mobile-web-app-title" content={$WEBUI_NAME} />
 	<meta name="description" content={$WEBUI_NAME} />
 	<link
 		rel="search"
@@ -1482,34 +1453,36 @@
 	/>
 </svelte:head>
 
-<a
-	href="#main-content"
-	class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-gray-900 focus:shadow-lg dark:focus:bg-gray-800 dark:focus:text-gray-100"
->
-	{$i18n.t('Skip to main content')}
-</a>
+<div class="studio-original-root h-full min-h-0" use:frameRegion={'content'}>
+	<a
+		href="#main-content"
+		class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-gray-900 focus:shadow-lg dark:focus:bg-gray-800 dark:focus:text-gray-100"
+	>
+		{$i18n.t('Skip to main content')}
+	</a>
 
-{#if showRefresh}
-	<div class=" py-5">
-		<Spinner className="size-5" />
-	</div>
-{/if}
-
-{#if loaded}
-	{#if mfaManagement}
-		<MfaManagement flow={mfaManagement} onClose={() => (mfaManagement = null)} />
-	{:else if $isApp}
-		<div class="flex flex-row h-screen">
-			<AppSidebar />
-
-			<div class="w-full flex-1 max-w-[calc(100%-4.5rem)]">
-				<slot />
-			</div>
+	{#if showRefresh}
+		<div class=" py-5">
+			<Spinner className="size-5" />
 		</div>
-	{:else}
-		<slot />
 	{/if}
-{/if}
+
+	{#if loaded}
+		{#if mfaManagement}
+			<MfaManagement flow={mfaManagement} onClose={() => (mfaManagement = null)} />
+		{:else if $isApp}
+			<div class="flex flex-row h-full min-h-0">
+				<AppSidebar />
+
+				<div class="w-full flex-1 max-w-[calc(100%-4.5rem)]">
+					<slot />
+				</div>
+			</div>
+		{:else}
+			<slot />
+		{/if}
+	{/if}
+</div>
 
 {#if $config?.features.enable_community_sharing}
 	<SyncStatsModal bind:show={showSyncStatsModal} eventData={syncStatsEventData} />

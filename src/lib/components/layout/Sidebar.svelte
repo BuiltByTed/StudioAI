@@ -92,7 +92,6 @@
 	import DropdownMenu from '../common/DropdownMenu.svelte';
 	import CheckIcon from '../icons/Check.svelte';
 	import MoreHorizontalIcon from './Sidebar/icons/MoreHorizontal.svelte';
-	import MobileSwipePanel from '../common/MobileSwipePanel.svelte';
 
 	const BREAKPOINT = 768;
 	const DEFAULT_PINNED_ITEMS = ['notes', 'workspace'];
@@ -900,33 +899,7 @@
 	on:pointercancel={resizeEndHandler}
 />
 
-<MobileSwipePanel
-	open={$showSidebar}
-	enabled={$mobile}
-	width={$sidebarWidth}
-	onOpenChange={(open) => showSidebar.set(open)}
-	let:visible
-	let:progress
-	let:panelStyle
-	let:backdropStyle
->
-	<!-- svelte-ignore a11y-no-static-element-interactions -->
-
-	{#if visible}
-		<div
-			class=" {$isApp
-				? ' ml-[4.5rem] md:ml-0'
-				: ''} fixed md:hidden z-40 top-0 right-0 left-0 bottom-0 bg-black w-full min-h-screen h-screen flex justify-center overflow-hidden overscroll-contain {progress >
-			0.02
-				? ''
-				: 'pointer-events-none'}"
-			style={backdropStyle}
-			on:mousedown={() => {
-				showSidebar.set(false);
-			}}
-		></div>
-	{/if}
-
+<div class="contents">
 	<SearchModal
 		bind:show={$showSearch}
 		onClose={() => {
@@ -1123,34 +1096,22 @@
 	<!-- {$i18n.t('New Folder')} -->
 	<!-- {$i18n.t('Pinned')} -->
 
-	{#if visible || !$mobile}
+	{#if $showSidebar}
 		<div
 			bind:this={navElement}
-			id={visible ? 'sidebar' : undefined}
+			id="sidebar"
 			role="navigation"
 			aria-label={$i18n.t('Chat history')}
 			aria-hidden={!$showSidebar}
 			inert={!$showSidebar}
-			class="h-screen max-h-[100dvh] min-h-screen select-none {$mobile
-				? visible
-					? 'bg-gray-50 dark:bg-gray-950 z-50'
-					: 'bg-transparent z-0 pointer-events-none'
-				: `bg-gray-50 dark:bg-gray-950 z-50 ${$showSidebar ? '' : 'pointer-events-none'}`} {$isApp
-				? `ml-[4.5rem] md:ml-0 `
-				: $mobile
-					? ''
-					: ''} shrink-0 text-gray-700 dark:text-gray-300 text-[0.8125rem] leading-5 fixed top-0 left-0 overflow-x-hidden
-        "
-			style={$mobile
-				? panelStyle
-				: `width: ${$showSidebar ? 'var(--sidebar-width)' : '0'}; transition: width 250ms cubic-bezier(0.22, 1, 0.36, 1);`}
+			class="h-full min-h-0 w-full select-none bg-gray-50 dark:bg-gray-950 z-50 shrink-0 text-gray-700 dark:text-gray-300 text-[0.8125rem] leading-5 relative overflow-x-hidden"
 			data-state={$showSidebar}
 		>
 			<div
-				class=" my-auto flex flex-col justify-between h-screen max-h-[100dvh] w-[var(--sidebar-width)] overflow-x-hidden scrollbar-hidden z-50 border-e border-gray-50 dark:border-gray-850/30"
+				class=" my-auto flex flex-col justify-between h-full min-h-0 w-[var(--sidebar-width)] overflow-x-hidden scrollbar-hidden z-50 border-e border-gray-50 dark:border-gray-850/30"
 			>
 				<div
-					class="sidebar px-1 pt-1.5 pb-1 flex justify-between space-x-1 text-gray-600 dark:text-gray-400 sticky top-0 z-10 -mb-2"
+					class="sidebar px-1 pt-1.5 pb-1 flex justify-between space-x-1 text-gray-600 dark:text-gray-400 relative shrink-0 z-10 -mb-2"
 				>
 					<a
 						class="flex items-center rounded-xl size-8.5 h-full justify-center hover:bg-gray-100 dark:hover:bg-gray-900 transition no-drag-region"
@@ -1180,24 +1141,6 @@
 							{$WEBUI_NAME}
 						</div>
 					</a>
-					<Tooltip
-						content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
-						placement="bottom"
-					>
-						<button
-							class="flex size-[1.875rem] justify-center items-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 transition {isWindows
-								? 'cursor-pointer'
-								: 'cursor-[w-resize]'}"
-							on:click={() => {
-								showSidebar.set(!$showSidebar);
-							}}
-							aria-label={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
-						>
-							<div class=" self-center">
-								<Sidebar className="size-4" />
-							</div>
-						</button>
-					</Tooltip>
 
 					<div
 						class="{scrollTop > 0
@@ -1717,7 +1660,7 @@
 					</SidebarSection>
 				</div>
 
-				<div class="px-1 pt-1 pb-1.5 sticky bottom-0 z-10 -mt-2 sidebar">
+				<div class="px-1 pt-1 pb-1.5 relative shrink-0 z-10 -mt-2 sidebar">
 					<div
 						class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
 					></div>
@@ -1762,9 +1705,9 @@
 			</div>
 		</div>
 
-		{#if !$mobile && visible}
+		{#if !$mobile && $showSidebar}
 			<div
-				class="relative flex items-center justify-center group border-r border-gray-50 dark:border-gray-850/30 hover:border-gray-200 dark:hover:border-gray-800 transition z-20 bg-transparent p-0 appearance-none"
+				class="absolute inset-y-0 right-0 flex items-center justify-center group border-r border-gray-50 dark:border-gray-850/30 hover:border-gray-200 dark:hover:border-gray-800 transition z-20 bg-transparent p-0 appearance-none"
 				id="sidebar-resizer"
 				on:pointerdown={resizeStartHandler}
 				role="separator"
@@ -1776,7 +1719,7 @@
 			</div>
 		{/if}
 	{/if}
-</MobileSwipePanel>
+</div>
 
 <style>
 	@media (max-width: 767px) {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import type { TerminalContext } from '$lib/types';
 	import { v4 as uuidv4 } from 'uuid';
 	import { toast } from 'svelte-sonner';
@@ -4897,6 +4898,8 @@
 			toast.error(`${error}`);
 		}
 	};
+	$: if (!embedded) frameState({ busy: generating || (taskIds?.length ?? 0) > 0 });
+	onDestroy(() => { if (!embedded) frameState({ busy: false }); });
 </script>
 
 <svelte:head>
@@ -5068,12 +5071,8 @@
 {/if}
 
 <div
-	class="{embedded
-		? 'h-full'
-		: 'h-screen max-h-[100dvh]'} transition-width duration-200 ease-in-out {$showSidebar &&
-	!embedded
-		? '  md:max-w-[calc(100%-var(--sidebar-width))]'
-		: ' '} w-full max-w-full min-w-0 flex flex-col"
+	class="h-full min-h-0 w-full max-w-full min-w-0 flex flex-col"
+	data-studio-unsaved={!!prompt || files.length > 0}
 	id={chatContainerId}
 >
 	{#if !loading}
@@ -5183,11 +5182,22 @@
 							}}
 						/>
 					{/if}
-					<div id="chat-pane" class="flex flex-col flex-auto z-10 w-full @container overflow-auto">
+					<div
+						id="chat-pane"
+						use:frameRegion={!embedded &&
+						!(
+							($settings?.landingPageMode === 'chat' && !$selectedFolder) ||
+							createMessagesList(history, history.currentId).length > 0
+						)
+							? 'scroll'
+							: false}
+						class="min-h-0 flex flex-col flex-auto z-10 w-full @container overflow-auto"
+					>
 						{#if ($settings?.landingPageMode === 'chat' && !$selectedFolder) || createMessagesList(history, history.currentId).length > 0}
 							<div
 								class=" pb-2.5 flex flex-col justify-between w-full flex-auto overflow-auto h-0 max-w-full z-10 scrollbar-hidden"
 								id="messages-container"
+								use:frameRegion={embedded ? false : 'scroll'}
 								bind:this={messagesContainerElement}
 								on:scroll={(e) => {
 									if (!messagesContainerElement) return;
@@ -5212,7 +5222,7 @@
 										}}
 										bind:selectedModels
 										{atSelectedModel}
-										className={embedded ? 'h-full flex pt-4' : 'h-full flex pt-18'}
+										className="h-full flex pt-4"
 										{sendMessage}
 										{showMessage}
 										{submitMessage}
@@ -5249,6 +5259,7 @@
 							{:else}
 								<div
 									id={embedded ? messageInputDropzoneId : undefined}
+									use:frameRegion={embedded ? false : 'bottom'}
 									class=" pb-2 {dragged ? 'z-0' : 'z-10'}"
 								>
 									<MessageInput

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import { toast } from 'svelte-sonner';
 
 	import { onDestroy, onMount, tick } from 'svelte';
@@ -414,9 +415,7 @@
 </svelte:head>
 
 <div
-	class="h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
-		? 'md:max-w-[calc(100%-var(--sidebar-width))]'
-		: ''} w-full max-w-full flex flex-col"
+	class="h-full min-h-0 transition-width duration-200 ease-in-out w-full max-w-full flex flex-col"
 	id="channel-container"
 >
 	<div class="w-full h-full flex">
@@ -459,6 +458,7 @@
 					<div
 						class=" pb-2.5 max-w-full z-10 scrollbar-hidden w-full h-full pt-6 flex-1 flex flex-col-reverse overflow-auto"
 						id="messages-container"
+						use:frameRegion={'scroll'}
 						bind:this={messagesContainerElement}
 						on:scroll={(e) => {
 							scrollEnd = Math.abs(messagesContainerElement.scrollTop) <= 50;
@@ -498,7 +498,7 @@
 					</div>
 				</div>
 
-				<div class=" pb-3 px-3">
+				<div class="pb-3 px-3" use:frameRegion={'bottom'}>
 					<MessageInput
 						id="root"
 						{messages}
@@ -535,7 +535,7 @@
 						threadId = null;
 					}}
 				>
-					<div class=" {threadId !== null ? ' h-screen  w-full' : 'px-6 py-4'} h-full">
+					<div class=" {threadId !== null ? ' h-full w-full' : 'px-6 py-4'} h-full">
 						<Thread
 							{threadId}
 							{channel}

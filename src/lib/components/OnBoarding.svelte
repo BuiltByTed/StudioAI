@@ -38,7 +38,7 @@
 </script>
 
 {#if show}
-	<div class="relative h-screen max-h-[100dvh] w-full overflow-hidden text-white">
+	<div class="relative h-full min-h-0 w-full overflow-hidden text-white">
 		<div class="fixed top-6 left-6 z-50 sm:top-10 sm:left-10">
 			<!-- LICENSE covers this Open WebUI onboarding logo.
 			Do not alter, remove, obscure, or replace it except as LICENSE permits:
@@ -68,7 +68,7 @@
 		<div class="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent"></div>
 		<div class="absolute inset-0 bg-linear-to-r from-black/50 via-black/10 to-transparent"></div>
 
-		<div class="relative z-10 flex h-screen max-h-[100dvh] w-full">
+		<div class="relative z-10 flex h-full min-h-0 w-full">
 			<div class="flex w-full flex-col justify-end px-6 pb-8 sm:px-10 sm:pb-10 lg:px-16 lg:pb-14">
 				<div class="max-w-3xl">
 					<!-- LICENSE covers this Open WebUI welcome identifier.

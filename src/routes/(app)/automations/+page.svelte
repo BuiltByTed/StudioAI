@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import { formatSchedule } from '$lib/utils/schedule';
 	import { onMount, onDestroy, getContext } from 'svelte';
 
@@ -412,7 +413,7 @@
 	}}
 />
 
-<div class="h-full overflow-y-auto px-2.5 pb-1">
+<div class="h-full overflow-y-auto px-2.5 pb-1" use:frameRegion={'scroll'}>
 	{#if loaded}
 		<div class="space-y-1">
 			<div class="flex h-8 flex-1 items-center w-full gap-2">

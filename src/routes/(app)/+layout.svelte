@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { toast } from 'svelte-sonner';
 	import { onMount, tick, getContext } from 'svelte';
 
@@ -480,25 +481,21 @@
 {/if}
 
 {#if $user}
-	<div class="app relative">
+	<div class="app relative h-full min-h-0">
 		<div
-			class=" text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900 h-screen max-h-[100dvh] overflow-auto flex flex-row justify-end"
+			class=" text-gray-700 dark:text-gray-100 bg-white dark:bg-gray-900 h-full min-h-0 overflow-hidden flex flex-row justify-end"
 		>
 			{#if !['user', 'admin'].includes($user?.role)}
 				<AccountPending />
 			{:else}
-				<Sidebar />
+				<div class="h-full min-h-0 relative" use:frameRegion={'sidebar'}><Sidebar /></div>
 
 				{#if loaded}
 					<main id="main-content" class="contents">
 						<slot />
 					</main>
 				{:else}
-					<div
-						class="w-full flex-1 h-full flex items-center justify-center {$showSidebar
-							? '  md:max-w-[calc(100%-var(--sidebar-width))]'
-							: ' '}"
-					>
+					<div class="w-full flex-1 h-full flex items-center justify-center">
 						<Spinner className="size-5" />
 					</div>
 				{/if}

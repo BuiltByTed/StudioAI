@@ -1,30 +1,42 @@
 # Studio AI
 
-Your personal AI workspace, built by Ted. Studio AI is an independently maintained
-fork of [Open WebUI](https://github.com/open-webui/open-webui) with a React interface
-built on [Homeframe](https://github.com/BuiltByTed/Homeframe).
+Studio AI is Ted's independently maintained fork of
+[Open WebUI](https://github.com/open-webui/open-webui). It keeps the original Svelte
+interface and uses [Homeframe](https://github.com/BuiltByTed/Homeframe) for the
+persistent application shell, viewport, keyboard handling, splash and PWA lifecycle.
 
-Studio AI is deployed with the Homeframe React interface. See the
-[release report](docs/homeframe/RELEASE-2026-10-19.md) for verification, migration
-and remaining feature limitations.
+The correction in `homeframe-bridge/` replaces the earlier React redesign. The
+original composer, model picker, settings, navigation and feature screens remain.
+Homeframe owns splash positioning. There is no top-of-sidebar close-menu button.
 
 ## Development
 
-The React application lives in [`homeframe-ui`](homeframe-ui/README.md). It targets
-the existing 0.12.3 backend and preserves its data and API contracts. Read the
-[Homeframe runbook](homeframe-ui/docs/HOMEFRAME_RUNBOOK.md) before changing the shell.
+Use Node 20.19 or 22 for the original frontend, then Node 24 for the bridge:
 
 ```sh
-cd homeframe-ui
+CYPRESS_INSTALL_BINARY=0 npm ci
+npm run crypto:verify
+NODE_OPTIONS=--max-old-space-size=8192 npx vite build
+# Switch to Node 24 before the next steps.
+cd homeframe-bridge
 npm ci
-npm run check
-npm run test:e2e
+npm test
+npm run build
+npm run doctor
 ```
+
+Build in this order: the bridge includes the original frontend's `build/` output.
+The existing backend supplies `/static` and `/pyodide`. The deployable artifact is
+`homeframe-bridge/dist`, not `homeframe-ui/dist`.
+
+See the [bridge runbook](homeframe-bridge/README.md) and
+[correction ledger](docs/homeframe/MINIMAL-INTEGRATION-PROGRESS.md) and
+[release report](docs/homeframe/MINIMAL-INTEGRATION-RELEASE.md).
+The earlier `homeframe-ui` implementation is retained for rollback/history; it is
+not the current application source. Its deployment proxy remains shared.
 
 ## Upstream and licensing
 
-Original backend and frontend sources remain available for compatibility and
-upstream maintenance. See the preserved [upstream documentation](docs/upstream/README.md),
-[LICENSE](LICENSE), and [LICENSE_HISTORY](LICENSE_HISTORY). The upstream branding
-requirements and their stated exemptions still apply to deployments of this fork.
-The Studio AI branding does not change those license terms.
+See the preserved [upstream documentation](docs/upstream/README.md),
+[LICENSE](LICENSE), and [LICENSE_HISTORY](LICENSE_HISTORY). Upstream branding
+requirements and their exemptions still apply. Studio AI does not change them.

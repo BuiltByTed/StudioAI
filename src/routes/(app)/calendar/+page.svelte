@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion, frameState } from '$lib/homeframe';
 	import { onMount, getContext, tick } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { goto } from '$app/navigation';
@@ -228,16 +229,17 @@
 <CreateCalendarModal bind:show={showCreateCalendarModal} on:created={handleCalendarCreated} />
 
 <div
-	class="flex flex-col w-full h-screen max-h-[100dvh] transition-width duration-200 ease-in-out {$showSidebar
-		? 'md:max-w-[calc(100%-var(--sidebar-width))]'
-		: ''} max-w-full"
+	class="flex flex-col w-full h-full min-h-0 transition-width duration-200 ease-in-out max-w-full"
 >
 	{#if loaded}
 		<!-- Top Navbar — spans above sidebar and calendar -->
-		<nav class="px-3 pt-2 pb-2 backdrop-blur-xl drag-region select-none shrink-0">
+		<nav
+			use:frameRegion={'header'}
+			class="px-3 pt-2 pb-2 backdrop-blur-xl drag-region select-none shrink-0"
+		>
 			<div class="flex items-center gap-0.5 md:gap-1">
-				{#if $mobile}
-					<div class="{$showSidebar ? 'md:hidden' : ''} flex flex-none items-center">
+				{#if !$mobile || !$showSidebar}
+					<div class="flex flex-none items-center">
 						<Tooltip
 							content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 							interactive={true}
@@ -361,7 +363,7 @@
 			</div>
 
 			<!-- Calendar -->
-			<div class="flex-1 flex flex-col min-h-0">
+			<div class="flex-1 flex flex-col min-h-0" use:frameRegion={'scroll'}>
 				<CalendarView
 					{events}
 					{calendars}

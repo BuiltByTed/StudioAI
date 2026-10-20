@@ -1,32 +1,39 @@
-name: Homeframe UI
+name: Studio AI original interface
 on:
   push:
     branches: [homeframe]
-    paths: ['homeframe-ui/**', '.github/workflows/homeframe-ui.yml']
+    paths: ['src/**', 'static/**', 'homeframe-bridge/**', 'homeframe-ui/deploy/**', 'package*.json', '*.config.*', '.github/workflows/homeframe-ui.yml']
   pull_request:
-    paths: ['homeframe-ui/**', '.github/workflows/homeframe-ui.yml']
+    paths: ['src/**', 'static/**', 'homeframe-bridge/**', 'homeframe-ui/deploy/**', 'package*.json', '*.config.*', '.github/workflows/homeframe-ui.yml']
 permissions:
   contents: read
 jobs:
   frontend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: homeframe-ui
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+        env:
+          CYPRESS_INSTALL_BINARY: '0'
+      - run: npm run crypto:verify
+      - run: npx vite build
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+      - uses: actions/setup-node@v4
+        with:
           node-version: '24'
           cache: npm
-          cache-dependency-path: homeframe-ui/package-lock.json
+          cache-dependency-path: homeframe-bridge/package-lock.json
       - run: npm ci
-      - run: npm run check
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+        working-directory: homeframe-bridge
+      - run: npm test && npm run build && npm run doctor
+        working-directory: homeframe-bridge
       - uses: actions/upload-artifact@v4
-        if: failure()
         with:
-          name: homeframe-browser-results
-          path: qa-artifacts/homeframe/playwright/
+          name: studio-ai-original-interface
+          path: homeframe-bridge/dist/
           retention-days: 7

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { frameRegion } from '$lib/homeframe';
 	import WorkspaceAccessModal from '$lib/components/workspace/common/WorkspaceAccessModal.svelte';
 	let accessModal: WorkspaceAccessModal;
 	import { marked } from 'marked';
@@ -402,9 +403,9 @@
 			</div>
 		</DeleteConfirmDialog>
 
-		<div class="flex items-center gap-0.5 md:gap-1 mb-1">
-			{#if $mobile}
-				<div class="{$showSidebar ? 'md:hidden' : ''} flex flex-none items-center">
+		<div use:frameRegion={'header'} class="flex items-center gap-0.5 md:gap-1 mb-1 px-2.5 pt-2">
+			{#if !$mobile || !$showSidebar}
+				<div class="flex flex-none items-center">
 					<Tooltip
 						content={$showSidebar ? $i18n.t('Close Sidebar') : $i18n.t('Open Sidebar')}
 						interactive={true}
